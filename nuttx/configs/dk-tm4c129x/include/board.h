@@ -40,81 +40,72 @@
  * Included Files
  ************************************************************************************/
 
+#ifndef __ASSEMBLY__
+#  include <stdbool.h>
+#endif
+
 /************************************************************************************
- * Definitions
+ * Pre-processor Definitions
  ************************************************************************************/
 
 /* Clocking *************************************************************************/
 
-/* RCC settings.  Crystals on-board the TMC4C123G LaunchPad include:
+/* Crystals on-board the DK-TM4C129X include:
  *
- *   16MHz connected to OSC0/1 (pins 40/41)
- *   32.768kHz connected to XOSC0/1 (pins 34/36)
+ * 1. 25.0MHz (Y2) is connected to OSC0/1 pins and is used as the run mode input to
+ *    the PLL.
+ * 2. 32.768kHz (Y3) connected to XOSC0/1 and clocks the hibernation module.
  */
 
-#define SYSCON_RCC_XTAL      SYSCON_RCC_XTAL16000KHZ /* On-board crystal is 16 MHz */
-#define XTAL_FREQUENCY       16000000
+#define SYSCON_RCC_XTAL      SYSCON_RCC_XTAL16000KHZ /* On-board crystal is 25 MHz */
+#define XTAL_FREQUENCY       25000000
 
-/* Oscillator source is the main oscillator */
-
-#define SYSCON_RCC_OSCSRC    SYSCON_RCC_OSCSRC_MOSC
-#define SYSCON_RCC2_OSCSRC   SYSCON_RCC2_OSCSRC2_MOSC
-#define OSCSRC_FREQUENCY     XTAL_FREQUENCY
-
-/* Use system divider = 4; this corresponds to a system clock frequency
- * of (400 / 1) / 5 = 80MHz (Using RCC2 and DIV400).
+/* The PLL generates Fvco according to the following formulae.  The input clock to
+ * the PLL may be either the external crystal (Fxtal) or PIOSC (Fpiosc).  This
+ * logic supports only the external crystal as the PLL source clock.
+ *
+ *   Fin  = Fxtal / (Q + 1 )(N + 1) -OR- Fpiosc / (Q + 1)(N + 1)
+ *   Mdiv = Mint + (MFrac / 1024)
+ *   Fvco = Fin * Mdiv
+ *
+ * Where the register fields Q and N actually hold (Q-1) and (N-1).   The following
+ * setup then generates Fvco = 480MHz:
+ *
+ *   Fin  = 25 MHz / 1 / 5 = 5 MHz
+ *   Mdiv = 96
+ *   Fvco = 480
  */
 
-#define TIVA_SYSDIV          5
-#define SYSCLK_FREQUENCY     80000000  /* 80MHz */
+#define BOARD_PLL_MINT       96        /* Integer part of PLL M value */
+#define BOARD_PLL_MFRAC      0         /* Fractional part of PLL M value */
+#define BOARD_PLL_N          5         /* PLL N value */
+#define BOARD_PLL_Q          1         /* PLL Q value */
 
-/* Other RCC settings:
+#define BOARD_FVCO_FREQUENCY 480000000 /* Resulting Fvco */
+
+/* When the PLL is active, the system clock frequency (SysClk) is calculated using
+ * the following equation:
  *
- * - Main and internal oscillators enabled.
- * - PLL and sys dividers not bypassed
- * - PLL not powered down
- * - No auto-clock gating reset
+ *   SysClk = Fvco/ (sysdiv + 1)
+ *
+ * The following setup generates Sysclk = 120MHz:
  */
 
-#define TIVA_RCC_VALUE (SYSCON_RCC_OSCSRC | SYSCON_RCC_XTAL | \
-                      SYSCON_RCC_USESYSDIV | SYSCON_RCC_SYSDIV(TIVA_SYSDIV))
-
-/* RCC2 settings
- *
- * - PLL and sys dividers not bypassed.
- * - PLL not powered down
- * - Not using RCC2
- *
- * When SYSCON_RCC2_DIV400 is not selected, SYSDIV2 is the divisor-1.
- * When SYSCON_RCC2_DIV400 is selected, SYSDIV2 is the divisor-1)/2, plus
- * the LSB:
- *
- * SYSDIV2 SYSDIV2LSB DIVISOR
- *   0       N/A         2
- *   1       0           3
- *   "       1           4
- *   2       0           5
- *   "       1           6
- *   etc.
- */
-
-#if (TIVA_SYSDIV & 1) == 0
-#  define TIVA_RCC2_VALUE (SYSCON_RCC2_OSCSRC | SYSCON_RCC2_SYSDIV2LSB | \
-                           SYSCON_RCC2_SYSDIV_DIV400(TIVA_SYSDIV) | \
-                           SYSCON_RCC2_DIV400 | SYSCON_RCC2_USERCC2)
-#else
-#  define TIVA_RCC2_VALUE (SYSCON_RCC2_OSCSRC | SYSCON_RCC2_SYSDIV_DIV400(TIVA_SYSDIV) | \
-                           SYSCON_RCC2_DIV400 | SYSCON_RCC2_USERCC2)
-#endif
+#define BOARD_PLL_SYSDIV     4         /* Sysclk = Fvco / 4 = 120MHz */
+#define SYSCLK_FREQUENCY     120000000 /* Resulting SysClk frequency */
 
 /* LED definitions ******************************************************************/
-/* The TMC4C123G LaunchPad has a single RGB LED.  There is only one visible LED which
+/* The DK-TM4C129X has a single RGB LED.  There is only one visible LED which
  * will vary in color.  But, from the standpoint of the firmware, this appears as
  * three LEDs:
  *
- *   BOARD_LED_R    -- Connected to PF1
- *   BOARD_LED_G    -- Connected to PF3
- *   BOARD_LED_B    -- Connected to PF2
+ *   --- ------------ -----------------
+ *   Pin Pin Function Jumper
+ *   --- ------------ -----------------
+ *   PN5 Red LED      J36 pins 1 and 2
+ *   PQ4 Blue LED     J36 pins 3 and 4
+ *   PQ7 Green LED    J36 pins 5 and 6
+ *   --- ------------ -----------------
  */
 
 /* LED index values for use with tm4c_setled() */
@@ -126,56 +117,43 @@
 
 /* LED bits for use with tm4c_setleds() */
 
-#define BOARD_LED1_BIT            (1 << BOARD_LED1)
-#define BOARD_LED2_BIT            (1 << BOARD_LED2)
+#define BOARD_LED_R_BIT           (1 << BOARD_LED_R)
+#define BOARD_LED_G_BIT           (1 << BOARD_LED_G)
+#define BOARD_LED_B_BIT           (1 << BOARD_LED_B)
 
-/* If CONFIG_ARCH_LEDS is defined, then automated support for the LaunchPad LEDs
+/* If CONFIG_ARCH_LEDS is defined, then automated support for the DK-TM4C129X LED
  * will be included in the build:
- *
- * OFF:
- * - OFF means that the OS is still initializing. Initialization is very fast so
- *   if you see this at all, it probably means that the system is hanging up
- *   somewhere in the initialization phases.
- *
- * GREEN or GREEN-ish
- * - This means that the OS completed initialization.
- *
- * Bluish:
- * - Whenever and interrupt or signal handler is entered, the BLUE LED is
- *   illuminated and extinguished when the interrupt or signal handler exits.
- *   This will add a BLUE-ish tinge to the LED.
- *
- * Redish:
- * - If a recovered assertion occurs, the RED component will be illuminated
- *   briefly while the assertion is handled.  You will probably never see this.
- *
- * Flashing RED:
- * - In the event of a fatal crash, the BLUE and GREEN components will be
- *   extinguished and the RED component will FLASH at a 2Hz rate.
  */
-                                /* RED  GREEN BLUE               */
-#define LED_STARTED       0     /* OFF  OFF   OFF                */
-#define LED_HEAPALLOCATE  0     /* OFF  OFF   OFF                */
-#define LED_IRQSENABLED   0     /* OFF  OFF   OFF                */
-#define LED_STACKCREATED  1     /* OFF  ON    OFF                */
-#define LED_INIRQ         2     /* NC   NC    ON  (momentary)    */
-#define LED_SIGNAL        2     /* NC   NC    ON  (momentary)    */
-#define LED_ASSERTION     3     /* ON   NC    NC  (momentary)    */
-#define LED_PANIC         4     /* ON   OFF   OFF (flashing 2Hz) */
+                                /* RED  GREEN BLUE */
+#define LED_STARTED       0     /* OFF  OFF   ON   */
+#define LED_HEAPALLOCATE  1     /* NC   NC    NC   */
+#define LED_IRQSENABLED   1     /* NC   NC    NC   */
+#define LED_STACKCREATED  2     /* OFF  ON    OFF  */
+#define LED_INIRQ         1     /* NC   NC    NC   */
+#define LED_SIGNAL        1     /* NC   NC    NC   */
+#define LED_ASSERTION     1     /* NC   NC    NC   */
+#define LED_PANIC         3     /* ON   OFF   OFF (flashing 2Hz) */
 
-/* LED definitions ******************************************************************/
-/* The TMC4C123G LaunchPad has a two buttons:
+/* Button definitions ***************************************************************/
+/* There are three push buttons on the board.
  *
- *   BOARD_SW1    -- Connected to PF4
- *   BOARD_SW2    -- Connected to PF0
+ *   --- ------------ -----------------
+ *   Pin Pin Function Jumper
+ *   --- ------------ -----------------
+ *   PP1 Select SW4   J37 pins 1 and 2
+ *   PN3 Up SW2       J37 pins 3 and 4
+ *   PE5 Down SW3     J37 pins 5 and 6
+ *   --- ------------ -----------------
  */
 
-#define BUTTON_SW1        0
-#define BUTTON_SW2        1
-#define NUM_BUTTONS       2
+#define BUTTON_SW2        0
+#define BUTTON_SW3        1
+#define BUTTON_SW4        2
+#define NUM_BUTTONS       3
 
-#define BUTTON_SW1_BIT    (1 << BUTTON_SW1)
 #define BUTTON_SW2_BIT    (1 << BUTTON_SW2)
+#define BUTTON_SW3_BIT    (1 << BUTTON_SW3)
+#define BUTTON_SW4_BIT    (1 << BUTTON_SW4)
 
 /* Pin Multiplexing Disambiguation **************************************************/
 
@@ -195,7 +173,7 @@
  *
  * Description:
  *   All Tiva architectures must provide the following entry point.  This entry
- *   point is called early in the intitialization -- after all memory has been
+ *   point is called early in the initialization -- after all memory has been
  *   configured and mapped but before any devices have been initialized.
  *
  ************************************************************************************/

@@ -2,11 +2,11 @@ README.txt
 ==========
 
   This README file discuss discusses the port of NuttX to the Texas
-  Instruments DK-TM4C129x Connected Development Kit.
+  Instruments DK-TM4C129X Connected Development Kit.
 
   Description
   -----------
-  The Tiva™ C Series TM4C129x Connected Development Kit highlights
+  The Tiva™ C Series TM4C129X Connected Development Kit highlights
   the 120-MHz Tiva C Series TM4C129XNCZAD ARM® Cortex™-M4 based
   microcontroller, including an integrated 10/100 Ethernet MAC +
   PHY as well as many other key features.
@@ -25,13 +25,8 @@ README.txt
       memories, parallel peripherals, and other system functions. 
     - In-Circuit Debug Interface (ICDI)
 
-On-Board GPIO Usage
-===================
-
-  [To be provided]
-
-Using OpenOCD and GDB with an FT2232 JTAG emulator
-==================================================
+Using OpenOCD and GDB with ICDI
+===============================
 
   Building OpenOCD under Cygwin:
 
@@ -322,16 +317,80 @@ NXFLAT Toolchain
   8. Edit setenv.h, if necessary, so that the PATH variable includes
      the path to the newly builtNXFLAT binaries.
 
-LEDs
-====
+Buttons and LEDs
+================
 
-  [To be provided]
+  Buttons
+  -------
+  There are three push buttons on the board.
+
+    --- ------------ -----------------
+    Pin Pin Function Jumper
+    --- ------------ -----------------
+    PP1 Select SW4   J37 pins 1 and 2
+    PN3 Up SW2       J37 pins 3 and 4
+    PE5 Down SW3     J37 pins 5 and 6
+    --- ------------ -----------------
+
+  LEDs
+  ----
+  The development board has one tri-color user LED.
+
+    --- ------------ -----------------
+    Pin Pin Function Jumper
+    --- ------------ -----------------
+    PN5 Red LED      J36 pins 1 and 2
+    PQ4 Blue LED     J36 pins 3 and 4
+    PQ7 Green LED    J36 pins 5 and 6
+    --- ------------ -----------------
+
+  If CONFIG_ARCH_LEDS is not defined, this LED is not used by the NuttX
+  logic.  APIs are provided to support application control of the LED in
+  that case (in include/board.h and src/tm4c_userleds.c).
+
+  If CONFIG_ARCH_LEDS is defined then the usage of the LEDs by Nuttx is
+  defined in include/board.h and src/tm4c_autoleds.c. The LEDs are used to
+  encode OS-related events as follows:
+
+    SYMBOL                Meaning                     LED state
+    -------------------  -----------------------  -------- --------
+    LED_STARTED          NuttX has been started     Blue
+    LED_HEAPALLOCATE     Heap has been allocated    (No change)
+    LED_IRQSENABLED      Interrupts enabled         (No change)
+    LED_STACKCREATED     Idle stack created         Green
+    LED_INIRQ            In an interrupt            (No change)
+    LED_SIGNAL           In a signal handler        (No change)
+    LED_ASSERTION        An assertion failed        (No change)
+    LED_PANIC            The system has crashed     Blinking OFF/RED
+    LED_IDLE             MCU is is sleep mode       (Not used)
+
+  Thus if the LED is GREEN then NuttX has successfully booted and is,
+  apparently, running normally.  If the LED is flashing OFF/RED at
+  approximately 2Hz, then a fatal error has been detected and the
+  system has halted.
 
 Serial Console
 ==============
 
-  [To be provided]
+  By default, all configurations use UART0 which connects to the USB VCOM
+  on the DEBUG port on the TM4C123 ICDI interface:
 
+    UART0 RX - PA.0
+    UART0 TX - PA.1
+
+  However, if you use an external RS232 driver, then other options are
+  available.  If your serial terminal loses connection with the USB serial
+  port each time you power cycle the board, the VCOM option can be very
+  painful.
+
+  UART0 TTL level signals are also available at J3 (also at J1):
+
+    DEBUG_TX - J3, pin 13.  Labelled PA1
+    DEBUG_RX - J3, pin 15.  Labelled PA0
+
+  Remove the jumper between pins 13-14 and 15-16 to disconnect UART0 from
+  the TM4C123 ICDI chip; Connect your external RS-232 driver at pins 13
+  and 16.  5v, 3.3v, AND GND are arvailable nearby at J10.
 
 DK-TM4129X Configuration Options
 ================================
@@ -356,7 +415,7 @@ DK-TM4129X Configuration Options
     CONFIG_ARCH_CHIP_name - For use in C code to identify the exact
        chip:
 
-       CONFIG_ARCH_CHIP_TM4C129XNCZAD
+       CONFIG_ARCH_CHIP_TM4C129XNC
 
     CONFIG_ARCH_BOARD - Identifies the configs subdirectory and
        hence, the board that supports the particular chip or SoC.
@@ -401,27 +460,14 @@ DK-TM4129X Configuration Options
        the delay actually is 100 seconds.
 
   There are configurations for disabling support for interrupts GPIO ports.
-  GPIOJ must be disabled because it does not exist on the TM4C129x.
-  Additional interrupt support can be disabled if desired to reduce memory
-  footprint.
+  Only GPIOP and GPIOQ pins can be used as interrupting sources on the
+  TM4C129X.  Additional interrupt support can be disabled if desired to
+  reduce memory footprint.
 
-    CONFIG_TIVA_DISABLE_GPIOA_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOB_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOC_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOD_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOE_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOF_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOG_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOH_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOJ_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOK_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOL_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOM_IRQS=n
-    CONFIG_TIVA_DISABLE_GPION_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOP_IRQS=n
-    CONFIG_TIVA_DISABLE_GPIOQ_IRQS=n
+    CONFIG_TIVA_GPIOP_IRQS=y
+    CONFIG_TIVA_GPIOQ_IRQS=y
 
-  TM4C129x specific device driver settings
+  TM4C129X specific device driver settings
 
     CONFIG_UARTn_SERIAL_CONSOLE - selects the UARTn for the
        console and ttys0 (default is the UART0).
@@ -434,8 +480,8 @@ DK-TM4129X Configuration Options
     CONFIG_UARTn_PARTIY - 0=no parity, 1=odd parity, 2=even parity
     CONFIG_UARTn_2STOP - Two stop bits
 
-    CONFIG_SSI0_DISABLE - Select to disable support for SSI0
-    CONFIG_SSI1_DISABLE - Select to disable support for SSI1
+    CONFIG_TIVA_SSI0 - Select to enable support for SSI0
+    CONFIG_TIVA_SSI1 - Select to enable support for SSI1
     CONFIG_SSI_POLLWAIT - Select to disable interrupt driven SSI support.
       Poll-waiting is recommended if the interrupt rate would be to
       high in the interrupt driven case.
