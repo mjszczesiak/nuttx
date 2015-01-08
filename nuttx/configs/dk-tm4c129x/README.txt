@@ -36,6 +36,7 @@ Contents
     - Buttons and LEDs
     - Serial Console
     - Networking Support
+    - Temperature Sensor
     - DK-TM4129X Configuration Options
     - Configurations
 
@@ -411,29 +412,7 @@ Networking Support
 
   Networking support via the can be added to NSH by selecting the following
   configuration options.
-==================================================
-file1: CONFIG_ARCH_HAVE_NET=y
-file1: CONFIG_ARP_SEND_DELAYMSEC=20
-file1: CONFIG_ARP_SEND_MAXTRIES=5
-file1: CONFIG_IOB_BUFSIZE=196
-file1: CONFIG_IOB_NBUFFERS=36
-file1: CONFIG_IOB_NCHAINS=8
-file1: CONFIG_IOB_THROTTLE=8
-file1: CONFIG_NSOCKET_DESCRIPTORS=8
-file1: CONFIG_SCHED_HPWORK=y
-file1: CONFIG_SCHED_HPWORKPERIOD=50000
-file1: CONFIG_SCHED_HPWORKPRIORITY=224
-file1: CONFIG_SCHED_HPWORKSTACKSIZE=2048
-file1: CONFIG_SCHED_WORKQUEUE=y
-file1: CONFIG_SIG_SIGWORK=17
-file1: =y
-file1:
-file1:
-file1:
-file1: =y
-file1: =y
-file1: CONFIG_WEBCLIENT_TIMEOUT=10
-==================================================
+
   Selecting the EMAC peripheral
   -----------------------------
 
@@ -573,20 +552,23 @@ f Application Configuration -> Network Utilities
     Builtin Apps:
     nsh>
 
-  NOTE:  If you enable this feature, you experience a delay on booting.
-  That is because the start-up logic waits for the network connection
-  to be established before starting NuttX.  In a real application, you
-  would probably want to do the network bringup on a separate thread
-  so that access to the NSH prompt is not delayed.
+  NOTE:  If you enable this networking as described above, you will
+  experience a delay on booting NSH.  That is because the start-up logic
+  waits for the network connection to be established before starting
+  NuttX.  In a real application, you would probably want to do the
+  network bringup on a separate thread so that access to the NSH prompt
+  is not delayed.
 
   This delay will be especially long if the board is not connected to
-  a network because additional time will be required to fail with timeout
-  errors.
+  a network.  On the order of minutes!  You will probably think that
+  NuttX has crashed!  And then, when it finally does come up after
+  numerous timeouts and retries, the network will not be available --
+  even if the network cable is plugged in later.
 
-  This delay will be especially long if the board is not connected to
-  a network.  On the order of a minute!  You will probably think that
-  NuttX has crashed!  And then, when it finally does come up, the
-  network will not be available.
+  The long delays can be eliminated by using a separate the network
+  initialization thread discussed below.  Recovering after the network
+  becomes available requires the network monitor feature, also discussed
+  below.
 
   Network Initialization Thread
   -----------------------------
@@ -606,8 +588,125 @@ f Application Configuration -> Network Utilities
       thread could poll periodically for network status, but does not).
 
   Both of these shortcomings could be eliminated by enabling the network
-  monitor.  See the SAMA5 configurations for a description of what it would
-  take to incorporate the network monitor feature.
+  monitor:
+
+  Network Monitor
+  ---------------
+  By default the network initialization thread will bring-up the network
+  then exit, freeing all of the resources that it required.  This is a
+  good behavior for systems with limited memory.
+
+  If the CONFIG_NSH_NETINIT_MONITOR option is selected, however, then the
+  network initialization thread will persist forever; it will monitor the
+  network status.  In the event that the network goes down (for example, if
+  a cable is removed), then the thread will monitor the link status and
+  attempt to bring the network back up.  In this case the resources
+  required for network initialization are never released.
+
+  Pre-requisites:
+
+    - CONFIG_NSH_NETINIT_THREAD as described above.
+
+    - CONFIG_TIVA_PHY_INTERRUPTS=y.  The TM4C129X EMAC block supports PHY
+      interrupts.  This is true whether the TM4C internal PHY is used or
+      if an external PHY is used.  If this option is selected, then support
+      for the PHY interrupt will be built in and the following additional
+      settings will be automatically selected:
+
+        CONFIG_NETDEV_PHY_IOCTL. Enable PHY IOCTL commands in the Ethernet
+        device driver. Special IOCTL commands must be provided by the Ethernet
+        driver to support certain PHY operations that will be needed for link
+        management. There operations are not complex and are implemented for
+        the Atmel SAMA5 family.
+
+        CONFIG_ARCH_PHY_INTERRUPT. This is not a user selectable option.
+        Rather, it is set when you select a board that supports PHY
+        interrupts.  In most architectures, the PHY interrupt is not
+        associated with the Ethernet driver at all; the Tiva architecture is
+        an exception. For most other architectures, the PHY interrupt is
+        provided via some board-specific GPIO.  In any event, the board-
+        specific logic must provide support for the PHY interrupt. To do
+        this, the board logic must do two things: (1) It must provide the
+        function arch_phy_irq() as described and prototyped in the
+        nuttx/include/nuttx/arch.h, and (2) it must select
+        CONFIG_ARCH_PHY_INTERRUPT in the board configuration file to
+        advertise that it supports arch_phy_irq().
+
+        And a few other things: UDP support is required (CONFIG_NET_UDP) and
+        signals must not be disabled (CONFIG_DISABLE_SIGNALS).
+
+  Given those prerequisites, the network monitor can be selected with these
+  additional settings.
+
+    System Type -> Tiva Ethernet Configuration
+      CONFIG_TIVA_PHY_INTERRUPTS=y          : Enable PHY interrupt support
+      CONFIG_ARCH_PHY_INTERRUPT=y           : (auto-selected)
+      CONFIG_NETDEV_PHY_IOCTL=y             : (auto-selected)
+
+    Application Configuration -> NSH Library -> Networking Configuration
+      CONFIG_NSH_NETINIT_THREAD             : Enable the network initialization thread
+      CONFIG_NSH_NETINIT_MONITOR=y          : Enable the network monitor
+      CONFIG_NSH_NETINIT_RETRYMSEC=2000     : Configure the network monitor as you like
+      CONFIG_NSH_NETINIT_SIGNO=18
+
+Temperature Sensor
+==================
+
+  TMP-1000 Temperature Sensor Driver
+  ----------------------------------
+  Support for the on-board TMP-100 temperature sensor is available.  This
+  uses the driver for the compatible LM-75 part.  To set up the temperature
+  sensor, add the following to the NuttX configuration file:
+
+    System Type -> Tiva/Stellaris Peripheral Selection
+      CONFIG_TIVA_I2C6=y
+
+    Drivers -> I2C Support
+      CONFIG_I2C=y
+
+    Drivers -> Sensors
+      CONFIG_LM75=y
+      CONFIG_I2C_LM75=y
+
+    Applications -> NSH Library
+      CONFIG_NSH_ARCHINIT=y
+
+  Then you can implement logic like the following to use the temperature sensor:
+
+    #include <nuttx/sensors/lm75.h>
+    #include <arch/board/board.h>
+
+    ret = tiva_tmp100_initialize("/dev/temp");      /* Register the temperature sensor */
+    fd  = open("/dev/temp", O_RDONLY);              /* Open the temperature sensor device */
+    ret = ioctl(fd, SNIOC_FAHRENHEIT, 0);           /* Select Fahrenheit */
+    bytesread = read(fd, buffer, 8*sizeof(b16_t));  /* Read (8) temperature samples */
+
+  More complex temperature sensor operations are also available.  See the IOCTL
+  commands enumerated in include/nuttx/sensors/lm75.h.  Also read the descriptions
+  of the tiva_tmp100_initialize() and tiva_tmp100_attach() interfaces in the
+  arch/board/board.h file (sames as configs/dk-tm4c129x/include/board.h).
+
+  NSH Command Line Application
+  ----------------------------
+  There is a tiny NSH command line application at examples/system/lm75 that
+  will read the current temperature from an LM75 compatible temperature sensor
+  and print the temperature on stdout in either units of degrees Fahrenheit or
+  Centigrade.  This tiny command line application is enabled with the following
+  configuration options:
+
+    Library
+      CONFIG_LIBM=y
+      CONFIG_LIBC_FLOATINGPOINT=y
+
+    Applications -> NSH Library
+      CONFIG_NSH_ARCHINIT=y
+
+    Applications -> System Add-Ons
+      CONFIG_SYSTEM_LM75=y
+      CONFIG_SYSTEM_LM75_DEVNAME="/dev/temp"
+      CONFIG_SYSTEM_LM75_FAHRENHEIT=y  (or CENTIGRADE)
+      CONFIG_SYSTEM_LM75_STACKSIZE=1024
+      CONFIG_SYSTEM_LM75_PRIORITY=100
 
 DK-TM4129X Configuration Options
 ================================
@@ -776,16 +875,37 @@ Where <subdir> is one of the following:
        easily disabled or reconfigured (See see the network related
        configuration settings above in the section entitled "Networking").
 
-       NOTE: In boot-up sequence is very simple in this example; all
-       initialization is done sequentially (vs. in parallel) and so you will
-       not see the NSH prompt until all initialization is complete.  The
-       network bring-up in particular will add some delay before the NSH
-       prompt appears.  In a real application, you would probably want to
-       do the network bringup on a separate thread so that access to the
-       NSH prompt is not delayed.
+       By default, this configuration assumes a 10.0.0.xx network.  It
+       uses a fixed IP address of 10.0.0.2 and assumes that the host is
+       at 10.0.0.1 and that the host provides the default router.  The
+       network mask is 255.255.255.0.  These address can be changed by
+       modifying the settings in the configuration.  DHCPC can be enabled
+       be modifying this default configuration (See the "Networking"
+       section above).
 
-       This delay will be especially long if the board is not connected to
-       a network because additional time will be required to fail with
-       timeout errors.  This delay can be eliminated, however, if you enable
-       an NSH initialization option as described above in a paragraph
-       entitled, "Network Initialization Thread."
+       The network initialization thread is enabled in this example.  NSH
+       will create a separate thread when it starts to initialize the
+       network.  This eliminates start-up delays to bring the network.  This
+       feature may be disabled by reverting the configuration described above
+       under "Network Initialization Thread"
+
+       The persistent network monitor thread is also available in this
+       configuration.  The network monitor will monitor changes in the
+       link status and gracefully take the network down when the link is
+       lost (for example, if the cable is disconnected) and bring the
+       network back up when the link becomes available again (for example,
+       if the cable is reconnected.  The paragraph "Network Monitor" above
+       for additional information.
+
+    5. I2C6 and support for the on-board TMP-100 temperature sensor are
+       enabled.  Also enabled is the NSH 'temp' command that will show the
+       current temperature on the command line like:
+
+       nsh> temp
+       80.60 degrees Fahrenheit
+
+       [80.6 F in January.  I love living in Costa Rica1]
+
+       The default units is degrees Fahrenheit, but that is easily
+       reconfigured.  See the discussin above in the paragraph entitled
+       "Temperature Sensor".

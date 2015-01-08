@@ -1,7 +1,7 @@
 /****************************************************************************
- * config/dk-tm4c129x/src/tm4c_bringup.c
+ * configs/dk-tm4c129x/src/tiva_tmp100.c
  *
- *   Copyright (C) 2014 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,47 +39,65 @@
 
 #include <nuttx/config.h>
 
-#include <debug.h>
+#include <errno.h>
 
-#include <arch/board/board.h>
+#include <nuttx/i2c.h>
+#include <nuttx/sensors/lm75.h>
 
+#include "tiva_i2c.h"
 #include "dk-tm4c129x.h"
 
+#if defined(CONFIG_I2C) && defined(CONFIG_I2C_LM75) && \
+    defined(CONFIG_TIVA_I2C6)
+
 /****************************************************************************
- * Pre-Processor Definitions
+ * Pre-processor Definitions
  ****************************************************************************/
 
-#ifdef CONFIG_SYSTEM_LM75_DEVNAME
-#  define TMP100_DEVNAME CONFIG_SYSTEM_LM75_DEVNAME
-#else
-#  define TMP100_DEVNAME "/dev/temp"
-#endif
+/****************************************************************************
+ * Private Functions
+ ****************************************************************************/
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: tm4c_bringup
+ * Name: tiva_tmp100_initialize
  *
  * Description:
- *   Bring up board features
+ *   Initialize and register the LM-75 Temperature Sensor driver.
+ *
+ * Input parameters:
+ *   devpath - The full path to the driver to register. E.g., "/dev/temp0"
+ *
+ * Returned Value:
+ *   Zero (OK) on success; a negated errno value on failure.
  *
  ****************************************************************************/
 
-int tm4c_bringup(void)
+int tiva_tmp100_initialize(FAR const char *devpath)
 {
-#if defined(CONFIG_I2C) && defined(CONFIG_I2C_LM75) && defined(CONFIG_TIVA_I2C6)
+  FAR struct i2c_dev_s *i2c;
   int ret;
 
-  /* Initialize and register the TMP-100 Temperature Sensor driver. */
+  /* Get an instance of the I2C6 interface */
 
-  ret = tiva_tmp100_initialize(TMP100_DEVNAME);
+  i2c =  up_i2cinitialize(TMP100_I2CBUS);
+  if (!i2c)
+    {
+      return -ENODEV;
+    }
+
+  /* Then register the temperature sensor */
+
+  ret = lm75_register(devpath, i2c, TMP100_I2CADDR);
   if (ret < 0)
     {
-      dbg("ERROR: Failed to initialize TMP100 driver: %d\n", ret);
+      (void)up_i2cuninitialize(i2c);
     }
-#endif
 
-  return OK;
+  return ret;
 }
+
+#endif /* CONFIG_I2C && CONFIG_I2C_LM75 && CONFIG_TIVA_I2C6 */

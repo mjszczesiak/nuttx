@@ -108,14 +108,14 @@
  *   --- ------------ -----------------
  */
 
-/* LED index values for use with tm4c_setled() */
+/* LED index values for use with tiva_setled() */
 
 #define BOARD_LED_R               0
 #define BOARD_LED_G               1
 #define BOARD_LED_B               2
 #define BOARD_NLEDS               3
 
-/* LED bits for use with tm4c_setleds() */
+/* LED bits for use with tiva_setleds() */
 
 #define BOARD_LED_R_BIT           (1 << BOARD_LED_R)
 #define BOARD_LED_G_BIT           (1 << BOARD_LED_G)
@@ -186,9 +186,17 @@
 
 /* I2C:
  *
+ *   I2C3: PG4-5 are provide to the BoostPack 1 interface
+ *   I2C7: PA4-5 are provide to the BoostPack 2 interface
  *   I2C6: PB6-7 are used for I2C to the TMP100 and the EM connector.
+ *         J18 and J20 must be closed to connect the TMP100.
+ *         I2C address is 0x4A
  */
 
+#define GPIO_I2C3_SCL     GPIO_I2C3_SCL_1
+#define GPIO_I2C3_SDA     GPIO_I2C3_SDA_1
+#define GPIO_I2C7_SCL     GPIO_I2C7_SCL_1
+#define GPIO_I2C7_SDA     GPIO_I2C7_SDA_1
 #define GPIO_I2C6_SCL     GPIO_I2C6_SCL_2
 #define GPIO_I2C6_SDA     GPIO_I2C6_SDA_2
 
@@ -236,7 +244,7 @@
 void tiva_boardinitialize(void);
 
 /************************************************************************************
- * Name:  tm4c_ledinit, tm4c_setled, and tm4c_setleds
+ * Name:  tiva_ledinit, tiva_setled, and tiva_setleds
  *
  * Description:
  *   If CONFIG_ARCH_LEDS is defined, then NuttX will control the on-board LED.  If
@@ -246,9 +254,27 @@ void tiva_boardinitialize(void);
  ************************************************************************************/
 
 #ifndef CONFIG_ARCH_LEDS
-void tm4c_ledinit(void);
-void tm4c_setled(int led, bool ledon);
-void tm4c_setleds(uint8_t ledset);
+void tiva_ledinit(void);
+void tiva_setled(int led, bool ledon);
+void tiva_setleds(uint8_t ledset);
+#endif
+
+/************************************************************************************
+ * Name: tiva_tmp100_initialize
+ *
+ * Description:
+ *   Initialize and register the TMP-100 Temperature Sensor driver.
+ *
+ * Input parameters:
+ *   devpath - The full path to the driver to register. E.g., "/dev/temp0"
+ *
+ * Returned Value:
+ *   Zero (OK) on success; a negated errno value on failure.
+ *
+ ************************************************************************************/
+
+#if defined(CONFIG_I2C) && defined(CONFIG_I2C_LM75) && defined(CONFIG_TIVA_I2C6)
+int tiva_tmp100_initialize(FAR const char *devpath);
 #endif
 
 #endif /* __ASSEMBLY__ */

@@ -1,7 +1,7 @@
 ############################################################################
-# configs/dk-tm4c129x/src/Makefile
+# apps/system/lm75/Makefile
 #
-#   Copyright (C) 2014 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2015 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,71 +33,113 @@
 #
 ############################################################################
 
--include $(TOPDIR)/Make.defs
+# TODO, this makefile should run make under the app dirs, instead of
+# sourcing the Make.defs!
 
-CFLAGS += -I$(TOPDIR)/sched
+-include $(TOPDIR)/.config
+-include $(TOPDIR)/Make.defs
+include $(APPDIR)/Make.defs
+
+ifeq ($(WINTOOL),y)
+INCDIROPT = -w
+endif
+
+# LM-75 Temperature Sensor Application
+
+CONFIG_SYSTEM_LM75_PRIORITY ?= 100
+CONFIG_SYSTEM_LM75_STACKSIZE ?= 1024
+
+APPNAME = temp
+PRIORITY = $(CONFIG_SYSTEM_LM75_PRIORITY)
+STACKSIZE = $(CONFIG_SYSTEM_LM75_STACKSIZE)
 
 ASRCS =
+CSRCS =
+MAINSRC = lm75.c
+
 AOBJS = $(ASRCS:.S=$(OBJEXT))
-CSRCS = tm4c_boot.c tm4c_bringup.c tm4c_ssi.c
-
-ifeq ($(CONFIG_ARCH_LEDS),y)
-CSRCS += tm4c_autoleds.c
-else
-CSRCS += tm4c_userleds.c
-endif
-
-ifeq ($(CONFIG_ARCH_BUTTONS),y)
-CSRCS += tm4c_buttons.c
-endif
-
-ifeq ($(CONFIG_TIVA_ETHERNET),y)
-CSRCS += tm4c_ethernet.c
-endif
-
-ifeq ($(CONFIG_NSH_ARCHINIT),y)
-CSRCS += tm4c_nsh.c
-endif
-
-ifeq ($(CONFIG_I2C_LM75),y)
-ifeq ($(CONFIG_TIVA_I2C6),y)
-CSRCS += tm4c_tmp100.c
-endif
-endif
-
 COBJS = $(CSRCS:.c=$(OBJEXT))
+MAINOBJ = $(MAINSRC:.c=$(OBJEXT))
 
-SRCS = $(ASRCS) $(CSRCS)
+SRCS = $(ASRCS) $(CSRCS) $(MAINSRC)
 OBJS = $(AOBJS) $(COBJS)
 
-ARCH_SRCDIR	= $(TOPDIR)/arch/$(CONFIG_ARCH)/src
-ifeq ($(WINTOOL),y)
-  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/chip}" \
-            -I "${shell cygpath -w $(ARCH_SRCDIR)/common}" \
-            -I "${shell cygpath -w $(ARCH_SRCDIR)/armv7-m}"
-else
-  CFLAGS += -I$(ARCH_SRCDIR)/chip -I$(ARCH_SRCDIR)/common -I$(ARCH_SRCDIR)/armv7-m
+ifneq ($(CONFIG_BUILD_KERNEL),y)
+  OBJS += $(MAINOBJ)
 endif
 
-all: libboard$(LIBEXT)
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  BIN = ..\..\libapps$(LIBEXT)
+else
+ifeq ($(WINTOOL),y)
+  BIN = ..\\..\\libapps$(LIBEXT)
+else
+  BIN = ../../libapps$(LIBEXT)
+endif
+endif
+
+ifeq ($(WINTOOL),y)
+  INSTALL_DIR = "${shell cygpath -w $(BIN_DIR)}"
+else
+  INSTALL_DIR = $(BIN_DIR)
+endif
+
+CONFIG_XYZ_PROGNAME ?= lm75$(EXEEXT)
+PROGNAME = $(CONFIG_XYZ_PROGNAME)
+
+ROOTDEPPATH = --dep-path .
+
+# Common build
+
+VPATH =
+
+all: .built
+.PHONY: context depend clean distclean
 
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
-$(COBJS) $(LINKOBJS): %$(OBJEXT): %.c
+$(COBJS) $(MAINOBJ): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-libboard$(LIBEXT): $(OBJS)
-	$(call ARCHIVE, $@, $(OBJS))
+.built: $(OBJS)
+	$(call ARCHIVE, $(BIN), $(OBJS))
+	$(Q) touch .built
+
+ifeq ($(CONFIG_BUILD_KERNEL),y)
+$(BIN_DIR)$(DELIM)$(PROGNAME): $(OBJS) $(MAINOBJ)
+	@echo "LD: $(PROGNAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(PROGNAME) $(ARCHCRT0OBJ) $(MAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u  $(INSTALL_DIR)$(DELIM)$(PROGNAME)
+
+install: $(BIN_DIR)$(DELIM)$(PROGNAME)
+
+else
+install:
+
+endif
+
+# Register application
+
+ifeq ($(CONFIG_NSH_BUILTIN_APPS),y)
+$(BUILTIN_REGISTRY)$(DELIM)$(APPNAME)_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(APPNAME),$(PRIORITY),$(STACKSIZE),lm75_main)
+
+context: $(BUILTIN_REGISTRY)$(DELIM)$(APPNAME)_main.bdat
+else
+context:
+endif
+
+# Create dependencies
 
 .depend: Makefile $(SRCS)
-	$(Q) $(MKDEP) $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) $(MKDEP) $(ROOTDEPPATH) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
 	$(Q) touch $@
 
 depend: .depend
 
 clean:
-	$(call DELFILE, libboard$(LIBEXT))
+	$(call DELFILE, .built)
 	$(call CLEAN)
 
 distclean: clean
