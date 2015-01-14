@@ -1,7 +1,7 @@
 ############################################################################
-# configs/tm4c123g-launchpad/src/Makefile
+# apps/examples/timer/Makefile
 #
-#   Copyright (C) 2014 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2015 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,65 +33,104 @@
 #
 ############################################################################
 
+-include $(TOPDIR)/.config
 -include $(TOPDIR)/Make.defs
+include $(APPDIR)/Make.defs
 
-CFLAGS += -I$(TOPDIR)/sched
+# Timer built-in application info
+
+CONFIG_EXAMPLES_TIMER_APPNAME ?= "timer"
+CONFIG_EXAMPLES_TIMER_STACKSIZE ?= 2048
+CONFIG_EXAMPLES_TIMER_PRIORITY ?= 100
+CONFIG_EXAMPLES_TIMER_PROGNAME ?= "timer"
+
+APPNAME   = $(CONFIG_EXAMPLES_TIMER_APPNAME)
+PRIORITY  = $(CONFIG_EXAMPLES_TIMER_PRIORITY)
+STACKSIZE = $(CONFIG_EXAMPLES_TIMER_STACKSIZE)
+PROGNAME  = $(CONFIG_EXAMPLES_TIMER_PROGNAME)
+
+# Timer, World! Example
 
 ASRCS =
+CSRCS =
+MAINSRC = timer_main.c
+
 AOBJS = $(ASRCS:.S=$(OBJEXT))
-CSRCS = tm4c_boot.c tm4c_bringup.c tm4c_ssi.c
-
-ifeq ($(CONFIG_ARCH_LEDS),y)
-CSRCS += tm4c_autoleds.c
-endif
-
-ifeq ($(CONFIG_NSH_ARCHINIT),y)
-CSRCS += tm4c_nsh.c
-endif
-
-ifeq ($(CONFIG_MTD_AT24XX),y)
-ifeq ($(CONFIG_TIVA_I2C0),y)
-CSRCS += tm4c_at24.c
-endif
-endif
-
-ifeq ($(CONFIG_ARCH_BUTTONS),y)
-CSRCS += tm4c_buttons.c
-endif
-
 COBJS = $(CSRCS:.c=$(OBJEXT))
+MAINOBJ = $(MAINSRC:.c=$(OBJEXT))
 
-SRCS = $(ASRCS) $(CSRCS)
+SRCS = $(ASRCS) $(CSRCS) $(MAINSRC)
 OBJS = $(AOBJS) $(COBJS)
 
-ARCH_SRCDIR	= $(TOPDIR)/arch/$(CONFIG_ARCH)/src
-ifeq ($(WINTOOL),y)
-  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/chip}" \
-            -I "${shell cygpath -w $(ARCH_SRCDIR)/common}" \
-            -I "${shell cygpath -w $(ARCH_SRCDIR)/armv7-m}"
-else
-  CFLAGS += -I$(ARCH_SRCDIR)/chip -I$(ARCH_SRCDIR)/common -I$(ARCH_SRCDIR)/armv7-m
+ifneq ($(CONFIG_BUILD_KERNEL),y)
+  OBJS += $(MAINOBJ)
 endif
 
-all: libboard$(LIBEXT)
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  BIN = ..\..\libapps$(LIBEXT)
+else
+ifeq ($(WINTOOL),y)
+  BIN = ..\\..\\libapps$(LIBEXT)
+else
+  BIN = ../../libapps$(LIBEXT)
+endif
+endif
+
+ifeq ($(WINTOOL),y)
+  INSTALL_DIR = "${shell cygpath -w $(BIN_DIR)}"
+else
+  INSTALL_DIR = $(BIN_DIR)
+endif
+
+ROOTDEPPATH = --dep-path .
+
+# Common build
+
+VPATH =
+
+all: .built
+.PHONY: clean depend distclean
 
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
-$(COBJS) $(LINKOBJS): %$(OBJEXT): %.c
+$(COBJS) $(MAINOBJ): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-libboard$(LIBEXT): $(OBJS)
-	$(call ARCHIVE, $@, $(OBJS))
+.built: $(OBJS)
+	$(call ARCHIVE, $(BIN), $(OBJS))
+	@touch .built
+
+ifeq ($(CONFIG_BUILD_KERNEL),y)
+$(BIN_DIR)$(DELIM)$(PROGNAME): $(OBJS) $(MAINOBJ)
+	@echo "LD: $(PROGNAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(PROGNAME) $(ARCHCRT0OBJ) $(MAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u  $(INSTALL_DIR)$(DELIM)$(PROGNAME)
+
+install: $(BIN_DIR)$(DELIM)$(PROGNAME)
+
+else
+install:
+
+endif
+
+ifeq ($(CONFIG_NSH_BUILTIN_APPS),y)
+$(BUILTIN_REGISTRY)$(DELIM)timer_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(APPNAME),$(PRIORITY),$(STACKSIZE),timer_main)
+
+context: $(BUILTIN_REGISTRY)$(DELIM)timer_main.bdat
+else
+context:
+endif
 
 .depend: Makefile $(SRCS)
-	$(Q) $(MKDEP) $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
-	$(Q) touch $@
+	@$(MKDEP) $(ROOTDEPPATH) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
+	@touch $@
 
 depend: .depend
 
 clean:
-	$(call DELFILE, libboard$(LIBEXT))
+	$(call DELFILE, .built)
 	$(call CLEAN)
 
 distclean: clean

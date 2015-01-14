@@ -34,9 +34,13 @@
 #
 ###########################################################################
 
+# Standard includes
+
 -include $(TOPDIR)/.config
 -include $(TOPDIR)/Make.defs
 include $(APPDIR)/Make.defs
+
+# Set up build configuration and environment
 
 WD := ${shell pwd | sed -e 's/ /\\ /g'}
 
@@ -52,23 +56,32 @@ UNPACK ?= tar -zxf
 
 MICROPYTHON_UNPACKDIR =  $(WD)/$(MICROPYTHON_UNPACKNAME)
 MICROPTHYON_SRCDIR = $(MICROPYTHON_UNPACKDIR)/py
+
+# Get the Micro Python build environment.  mkenv.mk has these dependencies
+#
+#  V             - Enable verbose output (same meaning as in NuttX)
+#  CROSS_COMPILE - Tool prefix (same as CROSSDEV in NuttX)
+
+CROSS_COMPILE ?= $(CROSSDEV)
 -include $(MICROPTHYON_SRCDIR)/mkenv.mk
 
 # qstr definitions (must come before including py.mk)
 
 QSTR_DEFS = qstrdefsport.h
 
-# include py core make definitions
+# Include py core make definitions
 
 -include $(MICROPTHYON_SRCDIR)/py.mk
 
-# c99 is needed for micropython
+# c99 is needed for Micro Python
 
-CFLAGS+=-std=c99 -Wno-shadow -Wno-strict-prototypes
+CFLAGS += -std=c99 -Wno-shadow -Wno-strict-prototypes
 
 INC =  -I. -I$(WD) -I$(MICROPYTHON_UNPACKDIR) -I$(PY_SRC) -I$(BUILD)
 
 CFLAGS +=$(INC)
+
+# Built-in application info
 
 CONFIG_INTERPRETERS_MICROPYTHON_APPNAME ?= micropython
 CONFIG_INTERPRETERS_MICROPYTHON_STACKSIZE ?= 2048
@@ -80,6 +93,8 @@ PRIORITY = $(CONFIG_INTERPRETERS_MICROPYTHON_PRIORITY)
 
 CONFIG_INTERPRETERS_MICROPYTHON_PROGNAME ?= micropython$(EXEEXT)
 PROGNAME = $(CONFIG_INTERPRETERS_MICROPYTHON_PROGNAME)
+
+# Files
 
 ASRCS =
 CSRCS = pyexec.c py_readline.c
@@ -153,13 +168,16 @@ endif
 depend: .depend
 
 clean:
+	$(call DELDIR, build)
+	$(call DELFILE, .built)
+	$(call CLEAN)
 
 distclean: clean
 	$(call DELFILE, Make.dep)
 	$(call DELFILE, .depend)
 	$(call DELDIR, $(MICROPYTHON_UNPACKNAME))
 	$(call DELFILE, .downloaded)
-	$(call DELFILE, .$(MICROPYTHON_TARBALL))
+	$(call DELFILE, $(MICROPYTHON_TARBALL))
 
 -include $(MICROPTHYON_SRCDIR)/mkrules.mk
 -include Make.dep

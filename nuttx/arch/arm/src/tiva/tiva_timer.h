@@ -47,6 +47,8 @@
 
 #include <arch/tiva/chip.h>
 
+#include "up_arch.h"
+#include "chip.h"
 #include "chip/tiva_timer.h"
 
 /****************************************************************************
@@ -125,6 +127,20 @@
 #define TIMER_ISDMARTCM(c)    ((((c)->flags) & TIMER_FLAG_DMARTCM) != 0)
 #define TIMER_ISDMAMATCH(c)   ((((c)->flags) & TIMER_FLAG_DMAMATCH) != 0)
 
+/* Debug ********************************************************************/
+/* Non-standard debug that may be enabled just for testing the timer
+ * driver.  NOTE: that only lldbg types are used so that the output is
+ * immediately available.
+ */
+
+#ifdef CONFIG_DEBUG_TIMER
+#  define timdbg  lldbg
+#  define timvdbg llvdbg
+#else
+#  define timdbg(x...)
+#  define timvdbg(x...)
+#endif
+
 /****************************************************************************
  * Public Types
  ****************************************************************************/
@@ -162,18 +178,18 @@ enum tiva_timer16mode_e
 
 typedef FAR void *TIMER_HANDLE;
 
+#ifdef CONFIG_TIVA_TIMER_32BIT
 /* This type describes the 32-bit timer interrupt handler.
  *
  * Input Parameters:
  *   handle - The same value as returned by tiva_gptm_configure()
- *   config - The same value provided as as an input to tiva_gptm_configure()
+ *   arg    - The same value provided in struct tiva_timer32config_s
  *   status - The value of the GPTM masked status register that caused the
  *            interrupt
  */
 
 struct tiva_gptm32config_s;
-typedef void (*timer32_handler_t)(TIMER_HANDLE handle,
-                                  const struct tiva_gptm32config_s *config,
+typedef void (*timer32_handler_t)(TIMER_HANDLE handle, void *arg,
                                   uint32_t status);
 
 /* This structure describes the configuration of one 32-bit timer */
@@ -183,32 +199,20 @@ struct tiva_timer32config_s
   uint8_t flags;                 /* See TIMER_FLAG_* definitions */
   timer32_handler_t handler;     /* Non-NULL: Interrupts will be enabled
                                   * and forwarded to this function */
+  void *arg;                     /* Argument that accompanies the handler
+                                  * callback.
+                                  */
 
-  /* Mode-specific parameters */
-
-  union
-  {
-    /* 32-bit programmable one-shot or periodic timer */
-
-    struct
-    {
-      uint32_t interval;         /* Value for interval load register */
-    } periodic;
-
-    /* 32-bit RTC with external 32.768-KHz input */
-
-    struct
-    {
-                                 /* No special configuration settings */
-    } rtc;
-  } u;
+  /* Mode-specific parameters may follow */
 };
+#endif
 
+#ifdef CONFIG_TIVA_TIMER_16BIT
 /* This type describes the 16-bit timer interrupt handler
  *
  * Input Parameters:
  *   handle - The same value as returned by tiva_gptm_configure()
- *   config - The same value provided as as an input to tiva_gptm_configure()
+ *   arg    - The same value provided in struct tiva_timer16config_s
  *   status - The value of the GPTM masked status register that caused the
  *            interrupt.
  *   tmndx  - Either TIMER16A or TIMER16B.  This may be useful in the
@@ -216,8 +220,7 @@ struct tiva_timer32config_s
  */
 
 struct tiva_gptm16config_s;
-typedef void (*timer16_handler_t)(TIMER_HANDLE handle,
-                                  const struct tiva_gptm16config_s *config,
+typedef void (*timer16_handler_t)(TIMER_HANDLE handle, void *arg,
                                   uint32_t status, int tmndx);
 
 /* This structure describes the configuration of one 16-bit timer A/B */
@@ -228,41 +231,13 @@ struct tiva_timer16config_s
   uint8_t flags;                 /* See TIMER_FLAG_* definitions */
   timer16_handler_t handler;     /* Non-NULL: Interrupts will be enabled
                                   * and forwarded to this function */
+  void *arg;                     /* Argument that accompanies the handler
+                                  * callback.
+                                  */
 
-  /* Mode-specific parameters */
-
-  union
-  {
-    /* 16-bit programmable one-shot or periodic timer */
-
-    struct
-    {
-      uint8_t  prescaler;        /* Prescaler-1:  0-255 corresponding to 1-256 */
-      uint16_t interval;         /* Value for interval load register */
-    } periodic;
-
-    /* 16-bit input edge-count capture mode w/8-bit prescaler */
-
-    struct
-    {
-                                 /* TODO: To be provided */
-    } count;
-
-    /* 16-bit input time capture mode w/8-bit prescaler */
-
-    struct
-    {
-                                 /* TODO: To be provided */
-    } time;
-
-    /* 16-bit PWM output mode w/8-bit prescaler */
-
-    struct
-    {
-                                 /* TODO: To be provided */
-    } pwm;
-  } u;
+  /* Mode-specific parameters may follow */
 };
+#endif
 
 /* This structure describes usage of both timers on a GPTIM module */
 
@@ -273,6 +248,7 @@ struct tiva_gptmconfig_s
   bool alternate;                /* False: Use SysClk; True: Use alternate clock source */
 };
 
+#ifdef CONFIG_TIVA_TIMER_32BIT
 /* This structure is cast compatible with struct tiva_gptmconfig_s and
  * describes usage of the single 32-bit timers on a GPTM module.
  */
@@ -282,16 +258,19 @@ struct tiva_gptm32config_s
   struct tiva_gptmconfig_s cmn;
   struct tiva_timer32config_s config;
 };
+#endif
 
 /* This structure is cast compatible with struct tiva_gptmconfig_s and
  * describes usage of both bit-bit timers A/B on a GPTM module.
  */
 
+#ifdef CONFIG_TIVA_TIMER_16BIT
 struct tiva_gptm16config_s
 {
   struct tiva_gptmconfig_s cmn;
   struct tiva_timer16config_s config[2];
 };
+#endif
 
 /****************************************************************************
  * Public Data
@@ -319,6 +298,23 @@ struct tiva_gptm16config_s
  ****************************************************************************/
 
 TIMER_HANDLE tiva_gptm_configure(const struct tiva_gptmconfig_s *gptm);
+
+/****************************************************************************
+ * Name: tiva_gptm_release
+ *
+ * Description:
+ *   Release resources held by the timer instance.  After this function is
+ *   called, the timer handle is invalid and must not be used further.
+ *
+ * Input Parameters:
+ *   handle - The handle value returned  by tiva_gptm_configure()
+ *
+ * Returned Value:
+ *   None.
+ *
+ ****************************************************************************/
+
+void tiva_gptm_release(TIMER_HANDLE handle);
 
 /****************************************************************************
  * Name: tiva_gptm_putreg
@@ -397,7 +393,9 @@ void tiva_gptm_modifyreg(TIMER_HANDLE handle, unsigned int offset,
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER_32BIT
 void tiva_timer32_start(TIMER_HANDLE handle);
+#endif
 
 /****************************************************************************
  * Name: tiva_timer16_start
@@ -415,10 +413,12 @@ void tiva_timer32_start(TIMER_HANDLE handle);
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER_16BIT
 void tiva_timer16_start(TIMER_HANDLE handle, int tmndx);
 
-#define tiva_timer16a_start(h) tiva_timer16_start(h, TIMER16A)
-#define tiva_timer16b_start(h) tiva_timer16_start(h, TIMER16B)
+#  define tiva_timer16a_start(h) tiva_timer16_start(h, TIMER16A)
+#  define tiva_timer16b_start(h) tiva_timer16_start(h, TIMER16B)
+#endif
 
 /****************************************************************************
  * Name: tiva_timer32_stop
@@ -435,7 +435,9 @@ void tiva_timer16_start(TIMER_HANDLE handle, int tmndx);
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER_32BIT
 void tiva_timer32_stop(TIMER_HANDLE handle);
+#endif
 
 /****************************************************************************
  * Name: tiva_timer16_stop
@@ -453,67 +455,158 @@ void tiva_timer32_stop(TIMER_HANDLE handle);
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER_16BIT
 void tiva_timer16_stop(TIMER_HANDLE handle, int tmndx);
 
-#define tiva_timer16a_stop(h) tiva_timer16_stop(h, TIMER16A)
-#define tiva_timer16b_stop(h) tiva_timer16_stop(h, TIMER16B)
+#  define tiva_timer16a_stop(h) tiva_timer16_stop(h, TIMER16A)
+#  define tiva_timer16b_stop(h) tiva_timer16_stop(h, TIMER16B)
+#endif
 
 /****************************************************************************
- * Name: tiva_timer32_setload
+ * Name: tiva_timer32_counter
+ *
+ * Description:
+ *   Return the current 32-bit counter value of the 32-bit timer.
+ *
+ * Input Parameters:
+ *   handle - The handle value returned  by tiva_gptm_configure()
+ *
+ * Returned Value:
+ *   The current 32-bit counter value.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_TIVA_TIMER_32BIT
+static inline uint32_t tiva_timer32_counter(TIMER_HANDLE handle)
+{
+  return tiva_gptm_getreg(handle, TIVA_TIMER_TAR_OFFSET);
+}
+#endif
+
+/****************************************************************************
+ * Name: tiva_timer16_counter
+ *
+ * Description:
+ *   Return the current 24-bit counter value of the 16-bit timer.
+ *
+ *   The timer 24-bit value is the 16-bit counter value AND the 8-bit
+ *   prescaler value.  From the caller's point of view the match value is
+ *   the 24-bit timer at the timer input clock frequency.
+ *
+ *   When counting down in periodic modes, the prescaler contains the
+ *   least-significant bits of the count. When counting up, the prescaler
+ *   holds the most-significant bits of the count.  But the caller is
+ *   protected from this complexity.
+ *
+ * Input Parameters:
+ *   handle - The handle value returned  by tiva_gptm_configure()
+ *   tmndx  - Either TIMER16A or TIMER16B to select the 16-bit timer
+ *
+ * Returned Value:
+ *   The current 24-bit counter value.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_TIVA_TIMER_16BIT
+uint32_t tiva_timer16_counter(TIMER_HANDLE handle, int tmndx);
+
+#  define tiva_timer16a_counter(h) tiva_timer16_counter(h, TIMER16A)
+#  define tiva_timer16b_counter(h) tiva_timer16_counter(h, TIMER16B)
+#endif
+
+/****************************************************************************
+ * Name: tiva_timer32_setinterval
  *
  * Description:
  *   This function may be called at any time to change the timer interval
  *   load value of a 32-bit timer.
  *
+ *   It the timer is configured as a 32-bit one-shot or periodic timer, then
+ *   then function will also enable timeout interrupts.
+ *
+ *   NOTE: As of this writing, there is no interface to disable the timeout
+ *   interrupts once they have been enabled.
+ *
  * Input Parameters:
- *   handle - The handle value returned  by tiva_gptm_configure()
- *   load   - The value to write to the timer interval load register
+ *   handle   - The handle value returned  by tiva_gptm_configure()
+ *   interval - The value to write to the timer interval load register
  *
  * Returned Value:
  *   None.
  *
  ****************************************************************************/
 
-static inline void tiva_timer32_setload(TIMER_HANDLE handle, uint32_t load)
-{
-  tiva_gptm_putreg(handle, TIVA_TIMER_TAILR_OFFSET, load);
-}
+#ifdef CONFIG_TIVA_TIMER_32BIT
+void tiva_timer32_setinterval(TIMER_HANDLE handle, uint32_t interval);
+#endif
 
 /****************************************************************************
- * Name: tiva_timer16_setload
+ * Name: tiva_timer16_setinterval
  *
  * Description:
  *   This function may be called at any time to change the timer interval
  *   load value of a 16-bit timer.
  *
+ *   It the timer is configured as a 16-bit one-shot or periodic timer, then
+ *   then function will also enable timeout interrupts.
+ *
+ *   NOTE: As of this writing, there is no interface to disable the timeout
+ *   interrupts once they have been enabled.
+ *
  * Input Parameters:
- *   handle - The handle value returned  by tiva_gptm_configure()
- *   load   - The value to write to the timer interval load register
- *   tmndx  - Either TIMER16A or TIMER16B to select the 16-bit timer
+ *   handle   - The handle value returned  by tiva_gptm_configure()
+ *   interval - The value to write to the timer interval load register
+ *   tmndx    - Either TIMER16A or TIMER16B to select the 16-bit timer
  *
  * Returned Value:
  *   None.
  *
  ****************************************************************************/
 
-static inline void tiva_timer16_setload(TIMER_HANDLE handle, uint16_t load,
-                                        int tmndx)
-{
-  unsigned int regoffset =
-    tmndx ? TIVA_TIMER_TBILR_OFFSET : TIVA_TIMER_TAILR_OFFSET;
+#ifdef CONFIG_TIVA_TIMER_16BIT
+void tiva_timer16_setinterval(TIMER_HANDLE handle, uint16_t interval, int tmndx);
 
-  tiva_gptm_putreg(handle, regoffset, load);
-}
+#  define tiva_timer16a_setinterval(h,l) tiva_timer16_setinterval(h,l,TIMER16A)
+#  define tiva_timer16b_setinterval(h,l) tiva_timer16_setinterval(h,l,TIMER16B)
+#endif
 
-static inline void tiva_timer16a_setload(TIMER_HANDLE handle, uint16_t load)
-{
-  tiva_gptm_putreg(handle, TIVA_TIMER_TAILR_OFFSET, load);
-}
+/****************************************************************************
+ * Name: tiva_timer32_remaining
+ *
+ * Description:
+ *   Get the time remaining before a one-shot or periodic 32-bit timer
+ *   expires.
+ *
+ * Input Parameters:
+ *   handle - The handle value returned  by tiva_gptm_configure().
+ *
+ * Returned Value:
+ *   Time remaining until the next timeout interrupt.
+ *
+ ****************************************************************************/
 
-static inline void tiva_timer16b_setload(TIMER_HANDLE handle, uint16_t load)
-{
-  tiva_gptm_putreg(handle, TIVA_TIMER_TBILR_OFFSET, load);
-}
+#ifdef CONFIG_TIVA_TIMER32_PERIODIC
+uint32_t tiva_timer32_remaining(TIMER_HANDLE handle);
+#endif
+
+/****************************************************************************
+ * Name: tiva_timer16_remaining
+ *
+ * Description:
+ *   Get the time remaining before a one-shot or periodic 16-bit timer
+ *   expires.
+ *
+ * Input Parameters:
+ *   handle - The handle value returned  by tiva_gptm_configure().
+ *
+ * Returned Value:
+ *   Time remaining until the next timeout interrupt.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_TIVA_TIMER16_PERIODIC
+/* To be provided */
+#endif
 
 /****************************************************************************
  * Name: tiva_timer32_absmatch
@@ -532,11 +625,13 @@ static inline void tiva_timer16b_setload(TIMER_HANDLE handle, uint16_t load)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER_32BIT
 static inline void tiva_timer32_absmatch(TIMER_HANDLE handle,
                                          uint32_t absmatch)
 {
   tiva_gptm_putreg(handle, TIVA_TIMER_TAMATCHR_OFFSET, absmatch);
 }
+#endif
 
 /****************************************************************************
  * Name: tiva_timer16_absmatch
@@ -556,6 +651,7 @@ static inline void tiva_timer32_absmatch(TIMER_HANDLE handle,
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER_16BIT
 static inline void tiva_timer16_absmatch(TIMER_HANDLE handle,
                                          uint16_t absmatch, int tmndx)
 {
@@ -574,6 +670,7 @@ static inline void tiva_timer16b_absmatch(TIMER_HANDLE handle, uint16_t absmatch
 {
   tiva_gptm_putreg(handle, TIVA_TIMER_TBMATCHR_OFFSET, absmatch);
 }
+#endif
 
 /****************************************************************************
  * Name: tiva_rtc_settime
@@ -595,10 +692,12 @@ static inline void tiva_timer16b_absmatch(TIMER_HANDLE handle, uint16_t absmatch
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER32_RTC
 static inline void tiva_rtc_settime(TIMER_HANDLE handle, uint32_t newtime)
 {
   tiva_gptm_putreg(handle, TIVA_TIMER_TAILR_OFFSET, newtime);
 }
+#endif
 
 /****************************************************************************
  * Name: tiva_rtc_setalarm
@@ -625,7 +724,9 @@ static inline void tiva_rtc_settime(TIMER_HANDLE handle, uint32_t newtime)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER32_RTC
 void tiva_rtc_setalarm(TIMER_HANDLE handle, uint32_t delay);
+#endif
 
 /****************************************************************************
  * Name: tiva_timer32_relmatch
@@ -656,7 +757,9 @@ void tiva_rtc_setalarm(TIMER_HANDLE handle, uint32_t delay);
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER32_PERIODIC
 void tiva_timer32_relmatch(TIMER_HANDLE handle, uint32_t relmatch);
+#endif
 
 /****************************************************************************
  * Name: tiva_timer16_relmatch
@@ -676,8 +779,8 @@ void tiva_timer32_relmatch(TIMER_HANDLE handle, uint32_t relmatch);
  *   runnning, periodic timer.
  *
  *   NOTE: The relmatch input is a really a 24-bit value; it is the 16-bit
- *   match counter match value AND the 8-bit prescaler value.  From the
- *   callers point of view the match value is the 24-bit time to match
+ *   match counter match value AND the 8-bit prescaler match value.  From
+ *   the caller's point of view the match value is the 24-bit time to match
  *   driven at the timer input clock frequency.
  *
  *   When counting down in periodic modes, the prescaler contains the
@@ -698,10 +801,12 @@ void tiva_timer32_relmatch(TIMER_HANDLE handle, uint32_t relmatch);
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVA_TIMER16_PERIODIC
 void tiva_timer16_relmatch(TIMER_HANDLE handle, uint32_t relmatch, int tmndx);
 
-#define tiva_timer16a_relmatch(h,r) tiva_timer16_relmatch(h,r,TIMER16A)
-#define tiva_timer16b_relmatch(h,r) tiva_timer16_relmatch(h,r,TIMER16B)
+#  define tiva_timer16a_relmatch(h,r) tiva_timer16_relmatch(h,r,TIMER16A)
+#  define tiva_timer16b_relmatch(h,r) tiva_timer16_relmatch(h,r,TIMER16B)
+#endif
 
 /****************************************************************************
  * Name: tiva_gptm0_synchronize
@@ -718,9 +823,41 @@ void tiva_timer16_relmatch(TIMER_HANDLE handle, uint32_t relmatch, int tmndx);
  *
  ****************************************************************************/
 
+#ifdef CONFIG_TIVER_TIMER0
 static inline void tiva_gptm0_synchronize(uint32_t sync)
 {
   putreg32(sync, TIVA_TIMER0_SYNC);
 }
+#endif
+
+/****************************************************************************
+ * Name: tiva_timer_register
+ *
+ * Description:
+ *   Bind the configuration timer to a timer lower half instance and
+ *   register the timer drivers at 'devpath'
+ *
+ *   NOTES:
+ *   1. Only 32-bit periodic timers are supported.
+ *   2. Timeout interrupts are disabled until tiva_timer32_setinterval() is
+ *      called.
+ *   3. Match interrupts are disabled until tiva_timer32_relmatch() is
+ *      called.
+ *
+ * Input Parameters:
+ *   devpath - The full path to the timer device.  This should be of the
+ *     form /dev/timer0
+ *   gptm - General purpose timer number
+ *   altlck - True: Use alternate clock source.
+ *
+ * Returned Values:
+ *   Zero (OK) is returned on success; A negated errno value is returned
+ *   to indicate the nature of any failure.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_TIMER
+int tiva_timer_register(FAR const char *devpath, int gptm, bool altclk);
+#endif
 
 #endif /* __ARCH_ARM_SRC_TIVA_TIVA_TIMER_H */
