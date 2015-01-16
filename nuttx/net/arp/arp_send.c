@@ -1,7 +1,7 @@
 /****************************************************************************
  * net/arp/arp_send.c
  *
- *   Copyright (C) 2014 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2014-2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -202,7 +202,7 @@ int arp_send(in_addr_t ipaddr)
       return OK;
     }
 
-#if defined(CONFIG_NET_IGMP) && !defined(CONFIG_NET_IPv6)
+#ifdef CONFIG_NET_IGMP
   /* Check if the destination address is a multicast address
    *
    * - IPv4: multicast addresses lie in the class D group -- The address range
@@ -223,9 +223,9 @@ int arp_send(in_addr_t ipaddr)
   /* Get the device that can route this request */
 
 #ifdef CONFIG_NET_MULTILINK
-  dev = netdev_findbyaddr(g_allzeroaddr, ipaddr);
+  dev = netdev_findby_ipv4addr(g_ipv4_allzeroaddr, ipaddr);
 #else
-  dev = netdev_findbyaddr(ipaddr);
+  dev = netdev_findby_ipv4addr(ipaddr);
 #endif
   if (!dev)
     {
@@ -250,9 +250,9 @@ int arp_send(in_addr_t ipaddr)
 
   /* Check if the destination address is on the local network. */
 
-  if (!net_ipaddr_maskcmp(ipaddr, dev->d_ipaddr, dev->d_netmask))
+  if (!net_ipv4addr_maskcmp(ipaddr, dev->d_ipaddr, dev->d_netmask))
     {
-      net_ipaddr_t dripaddr;
+      in_addr_t dripaddr;
 
       /* Destination address is not on the local network */
 
@@ -270,7 +270,7 @@ int arp_send(in_addr_t ipaddr)
        * destination address when determining the MAC address.
        */
 
-      net_ipaddr_copy(dripaddr, dev->d_draddr);
+      net_ipv4addr_copy(dripaddr, dev->d_draddr);
 #endif
       ipaddr = dripaddr;
     }
@@ -337,8 +337,8 @@ int arp_send(in_addr_t ipaddr)
       state.snd_cb->event = arp_send_interrupt;
 
       /* Notify the device driver that new TX data is available.
-       * NOTES: This is in essence what netdev_txnotify() does, which
-       * is not possible to call since it expects a net_ipaddr_t as
+       * NOTES: This is in essence what netdev_ipv4_txnotify() does, which
+       * is not possible to call since it expects a in_addr_t as
        * its single argument to lookup the network interface.
        */
 

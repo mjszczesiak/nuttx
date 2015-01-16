@@ -1660,6 +1660,13 @@ static void tiva_receive(FAR struct tiva_ethmac_s *priv)
 {
   struct net_driver_s *dev = &priv->dev;
 
+  /* I have seen this error just after writing a new image to FLASH.  After
+   * resetting he board, I never see it again.  I am guessing that the
+   * flasher leaves the hardware in a bad state(?).
+   */
+
+  DEBUGASSERT(dev->d_buf != NULL);
+
   /* Loop while while tiva_recvframe() successfully retrieves valid
    * Ethernet frames.
    */
@@ -1680,21 +1687,52 @@ static void tiva_receive(FAR struct tiva_ethmac_s *priv)
         {
           nlldbg("DROPPED: Too big: %d\n", dev->d_len);
         }
+      else
 
       /* We only accept IP packets of the configured type and ARP packets */
 
-#ifdef CONFIG_NET_IPv6
-      else if (BUF->type == HTONS(ETHTYPE_IP6))
-#else
-      else if (BUF->type == HTONS(ETHTYPE_IP))
-#endif
+#ifdef CONFIG_NET_IPv4
+      if (BUF->type == HTONS(ETHTYPE_IP))
         {
-          nvdbg("IP frame\n");
+          nllvdbg("IPv4 frame\n");
 
-          /* Handle ARP on input then give the IP packet to uIP */
+          /* Handle ARP on input then give the IPv4 packet to the network
+           * layer
+           */
 
           arp_ipin(&priv->dev);
-          devif_input(&priv->dev);
+          ipv4_input(&priv->dev);
+
+          /* If the above function invocation resulted in data that should be
+           * sent out on the network, the field  d_len will set to a value > 0.
+           */
+
+          if (priv->dev.d_len > 0)
+            {
+              /* Update the Ethernet header with the correct MAC address */
+
+#ifdef CONFIG_NET_IPv6
+              if (BUF->type == HTONS(ETHTYPE_IP))
+#endif
+                {
+                  arp_out(&priv->dev);
+                }
+
+              /* And send the packet */
+
+              tiva_transmit(priv);
+            }
+        }
+      else
+#endif
+#ifdef CONFIG_NET_IPv6
+      if (BUF->type == HTONS(ETHTYPE_IP6))
+        {
+          nllvdbg("Iv6 frame\n");
+
+          /* Give the IPv6 packet to the network layer */
+
+          ipv6_input(&priv->dev);
 
           /* If the above function invocation resulted in data that should be
            * sent out on the network, the field  d_len will set to a value > 0.
@@ -1702,11 +1740,24 @@ static void tiva_receive(FAR struct tiva_ethmac_s *priv)
 
           if (priv->dev.d_len > 0)
            {
-             arp_out(&priv->dev);
-             tiva_transmit(priv);
-           }
+#ifdef CONFIG_NET_IPv4
+              /* Update the Ethernet header with the correct MAC address */
+
+              if (BUF->type == HTONS(ETHTYPE_IP))
+                {
+                  arp_out(&priv->dev);
+                }
+#endif
+
+              /* And send the packet */
+
+              tiva_transmit(priv);
+            }
         }
-      else if (BUF->type == htons(ETHTYPE_ARP))
+      else
+#endif
+#ifdef CONFIG_NET_ARP
+      if (BUF->type == htons(ETHTYPE_ARP))
         {
           nvdbg("ARP frame\n");
 
@@ -1724,6 +1775,7 @@ static void tiva_receive(FAR struct tiva_ethmac_s *priv)
             }
         }
       else
+#endif
         {
           nlldbg("DROPPED: Unknown type: %04x\n", BUF->type);
         }
@@ -1996,7 +2048,9 @@ static inline void tiva_interrupt_process(FAR struct tiva_ethmac_s *priv)
 #ifdef CONFIG_NET_NOINTS
 static void tiva_interrupt_work(FAR void *arg)
 {
-  FAR struct tiva_ethmac_s *priv = ( FAR struct tiva_ethmac_s *)arg;
+  FAR struct tiva_ethmac_s *priv = (FAR struct tiva_ethmac_s *)arg;
+
+  DEBUGASSERT(priv);
 
   /* Process pending Ethernet interrupts */
 

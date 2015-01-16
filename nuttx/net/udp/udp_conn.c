@@ -63,6 +63,12 @@
 #include "udp/udp.h"
 
 /****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+#define IPv4 ((struct net_iphdr_s *)&dev->d_buf[NET_LL_HDRLEN(dev)])
+
+/****************************************************************************
  * Private Data
  ****************************************************************************/
 
@@ -121,8 +127,7 @@ static inline void _udp_semtake(FAR sem_t *sem)
  ****************************************************************************/
 
 #ifdef CONFIG_NETDEV_MULTINIC
-static FAR struct udp_conn_s *udp_find_conn(net_ipaddr_t ipaddr,
-                                            uint16_t portno)
+static FAR struct udp_conn_s *udp_find_conn(in_addr_t ipaddr, uint16_t portno)
 #else
 static FAR struct udp_conn_s *udp_find_conn(uint16_t portno)
 #endif
@@ -144,11 +149,11 @@ static FAR struct udp_conn_s *udp_find_conn(uint16_t portno)
        */
 
       if (conn->lport == portno &&
-          (net_ipaddr_cmp(conn->lipaddr, ipaddr) ||
+          (net_ipv4addr_cmp(conn->u.ipv4.laddr, ipaddr) ||
 #ifdef CONFIG_NET_IPv6
-           net_ipaddr_cmp(conn->lipaddr, g_allzeroaddr)))
+           net_ipv4addr_cmp(conn->u.ipv4.laddr, g_ipv4_allzeroaddr)))
 #else
-           net_ipaddr_cmp(conn->lipaddr, INADDR_ANY)))
+           net_ipv4addr_cmp(conn->u.ipv4.laddr, INADDR_ANY)))
 #endif
         {
           return conn;
@@ -189,7 +194,7 @@ static FAR struct udp_conn_s *udp_find_conn(uint16_t portno)
  ****************************************************************************/
 
 #ifdef CONFIG_NETDEV_MULTINIC
-static uint16_t udp_select_port(net_ipaddr_t ipaddr)
+static uint16_t udp_select_port(in_addr_t ipaddr)
 #else
 static uint16_t udp_select_port(void)
 #endif
@@ -342,11 +347,13 @@ void udp_free(FAR struct udp_conn_s *conn)
  *
  ****************************************************************************/
 
-FAR struct udp_conn_s *udp_active(FAR struct udp_iphdr_s *buf)
+FAR struct udp_conn_s *udp_active(FAR struct net_driver_s *dev,
+                                  FAR struct udp_hdr_s *udp)
 {
-  FAR struct udp_conn_s *conn =
-    (FAR struct udp_conn_s *)g_active_udp_connections.head;
+  FAR struct net_iphdr_s *ip = IPv4;
+  FAR struct udp_conn_s *conn;
 
+  conn = (FAR struct udp_conn_s *)g_active_udp_connections.head;
   while (conn)
     {
       /* If the local UDP port is non-zero, the connection is considered
@@ -360,7 +367,7 @@ FAR struct udp_conn_s *udp_active(FAR struct udp_iphdr_s *buf)
        *   IP address is available and we will insist that the
        *   destination IP matches the bound address (or the destination
        *   IP address is a broadcast address). If a socket is bound to
-       *   INADDRY_ANY (lipaddr), then it should receive all packets
+       *   INADDRY_ANY (laddr), then it should receive all packets
        *   directed to the port.
        * - Finally, if the connection is bound to a remote IP address,
        *   the source IP address of the packet is checked. Broadcast
@@ -370,16 +377,16 @@ FAR struct udp_conn_s *udp_active(FAR struct udp_iphdr_s *buf)
        * is destined for this UDP connection.
        */
 
-      if (conn->lport != 0 && buf->destport == conn->lport &&
-          (conn->rport == 0 || buf->srcport == conn->rport) &&
+      if (conn->lport != 0 && udp->destport == conn->lport &&
+          (conn->rport == 0 || udp->srcport == conn->rport) &&
 #ifdef CONFIG_NETDEV_MULTINIC
-          (net_ipaddr_cmp(conn->lipaddr, g_allzeroaddr) ||
-           net_ipaddr_cmp(conn->lipaddr, g_alloneaddr) ||
-           net_ipaddr_hdrcmp(buf->destipaddr, &conn->lipaddr)) &&
+          (net_ipv4addr_cmp(conn->u.ipv4.laddr, g_ipv4_allzeroaddr) ||
+           net_ipv4addr_cmp(conn->u.ipv4.laddr, g_ipv4_alloneaddr) ||
+           net_ipv4addr_hdrcmp(ip->destipaddr, &conn->u.ipv4.laddr)) &&
 #endif
-          (net_ipaddr_cmp(conn->ripaddr, g_allzeroaddr) ||
-           net_ipaddr_cmp(conn->ripaddr, g_alloneaddr) ||
-           net_ipaddr_hdrcmp(buf->srcipaddr, &conn->ripaddr)))
+          (net_ipv4addr_cmp(conn->u.ipv4.raddr, g_ipv4_allzeroaddr) ||
+           net_ipv4addr_cmp(conn->u.ipv4.raddr, g_ipv4_alloneaddr) ||
+           net_ipv4addr_hdrcmp(ip->srcipaddr, &conn->u.ipv4.raddr)))
         {
           /* Matching connection found.. return a reference to it */
 
@@ -440,7 +447,7 @@ int udp_bind(FAR struct udp_conn_s *conn, FAR const struct sockaddr_in *addr)
   int ret;
 
 #ifdef CONFIG_NETDEV_MULTINIC
-  net_ipaddr_t ipaddr;
+  in_addr_t ipaddr;
 
 #ifdef CONFIG_NET_IPv6
   /* Get the IPv6 address that we are binding to */
@@ -459,7 +466,7 @@ int udp_bind(FAR struct udp_conn_s *conn, FAR const struct sockaddr_in *addr)
    * for receiving (Sending will use the default port).
    */
 
-  net_ipaddr_copy(conn->lipaddr, ipaddr);
+  net_ipv4addr_copy(conn->u.ipv4.laddr, ipaddr);
 #endif
 
   /* Is the user requesting to bind to any port? */
@@ -545,7 +552,7 @@ int udp_connect(FAR struct udp_conn_s *conn,
        */
 
 #ifdef CONFIG_NETDEV_MULTINIC
-      conn->lport = htons(udp_select_port(conn->lipaddr));
+      conn->lport = htons(udp_select_port(conn->u.ipv4.laddr));
 #else
       conn->lport = htons(udp_select_port());
 #endif
@@ -556,12 +563,12 @@ int udp_connect(FAR struct udp_conn_s *conn,
   if (addr)
     {
       conn->rport = addr->sin_port;
-      net_ipaddr_copy(conn->ripaddr, addr->sin_addr.s_addr);
+      net_ipv4addr_copy(conn->u.ipv4.raddr, addr->sin_addr.s_addr);
     }
   else
     {
       conn->rport = 0;
-      net_ipaddr_copy(conn->ripaddr, g_allzeroaddr);
+      net_ipv4addr_copy(conn->u.ipv4.raddr, g_ipv4_allzeroaddr);
     }
 
   conn->ttl = IP_TTL;

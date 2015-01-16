@@ -106,8 +106,8 @@ static void tcp_sendcomplete(FAR struct net_driver_s *dev)
    * length.
    */
 
-  pbuf->len[0]      = ((dev->d_len - IP_HDRLEN) >> 8);
-  pbuf->len[1]      = ((dev->d_len - IP_HDRLEN) & 0xff);
+  pbuf->len[0]      = ((dev->d_len - IPv6_HDRLEN) >> 8);
+  pbuf->len[1]      = ((dev->d_len - IPv6_HDRLEN) & 0xff);
 
 #else /* CONFIG_NET_IPv6 */
 
@@ -142,7 +142,7 @@ static void tcp_sendcomplete(FAR struct net_driver_s *dev)
   /* Calculate IP checksum. */
 
   pbuf->ipchksum    = 0;
-  pbuf->ipchksum    = ~(ip_chksum(dev));
+  pbuf->ipchksum    = ~(ipv4_chksum(dev));
 
 #endif /* CONFIG_NET_IPv6 */
 
@@ -187,8 +187,8 @@ static void tcp_sendcommon(FAR struct net_driver_s *dev,
   pbuf->srcport  = conn->lport;
   pbuf->destport = conn->rport;
 
-  net_ipaddr_hdrcopy(pbuf->srcipaddr, &dev->d_ipaddr);
-  net_ipaddr_hdrcopy(pbuf->destipaddr, &conn->ripaddr);
+  net_ipv4addr_hdrcopy(pbuf->srcipaddr, &dev->d_ipaddr);
+  net_ipv4addr_hdrcopy(pbuf->destipaddr, &conn->u.ipv4.raddr);
 
   if (conn->tcpstateflags & TCP_STOPPED)
     {
@@ -275,7 +275,7 @@ void tcp_reset(FAR struct net_driver_s *dev)
 #endif
 
   pbuf->flags     = TCP_RST | TCP_ACK;
-  dev->d_len      = IPTCP_HDRLEN;
+  dev->d_len      = IPv4TCP_HDRLEN;
   pbuf->tcpoffset = 5 << 4;
 
   /* Flip the seqno and ackno fields in the TCP header. */
@@ -320,8 +320,8 @@ void tcp_reset(FAR struct net_driver_s *dev)
 
   /* Swap IP addresses. */
 
-  net_ipaddr_hdrcopy(pbuf->destipaddr, pbuf->srcipaddr);
-  net_ipaddr_hdrcopy(pbuf->srcipaddr, &dev->d_ipaddr);
+  net_ipv4addr_hdrcopy(pbuf->destipaddr, pbuf->srcipaddr);
+  net_ipv4addr_hdrcopy(pbuf->srcipaddr, &dev->d_ipaddr);
 
   /* And send out the RST packet */
 
@@ -351,6 +351,7 @@ void tcp_ack(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
              uint8_t ack)
 {
   struct tcp_iphdr_s *pbuf = BUF;
+  uint16_t tcp_mss = TCP_IPv4_MSS(dev);
 
   /* Save the ACK bits */
 
@@ -360,9 +361,9 @@ void tcp_ack(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
 
   pbuf->optdata[0] = TCP_OPT_MSS;
   pbuf->optdata[1] = TCP_OPT_MSS_LEN;
-  pbuf->optdata[2] = TCP_MSS(dev) / 256;
-  pbuf->optdata[3] = TCP_MSS(dev) & 255;
-  dev->d_len       = IPTCP_HDRLEN + TCP_OPT_MSS_LEN;
+  pbuf->optdata[2] = tcp_mss >> 8;
+  pbuf->optdata[3] = tcp_mss & 0xff;
+  dev->d_len       = IPv4TCP_HDRLEN + TCP_OPT_MSS_LEN;
   pbuf->tcpoffset  = ((TCP_HDRLEN + TCP_OPT_MSS_LEN) / 4) << 4;
 
   /* Complete the common portions of the TCP message */

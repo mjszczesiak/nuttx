@@ -44,6 +44,7 @@
 #include <nuttx/config.h>
 #if defined(CONFIG_NET) && defined(CONFIG_NET_UDP)
 
+#include <string.h>
 #include <debug.h>
 
 #include <arpa/inet.h>
@@ -108,7 +109,7 @@ void udp_send(struct net_driver_s *dev, struct udp_conn_s *conn)
        * the IP and UDP headers (and, eventually, the Ethernet header)
        */
 
-      dev->d_len = dev->d_sndlen + IPUDP_HDRLEN;
+      dev->d_len = dev->d_sndlen + IPv4UDP_HDRLEN;
 
       /* Initialize the IP header.  Note that for IPv6, the IP length field
        * does not include the IPv6 IP header length.
@@ -121,11 +122,11 @@ void udp_send(struct net_driver_s *dev, struct udp_conn_s *conn)
       pudpbuf->flow        = 0x00;
       pudpbuf->len[0]      = (dev->d_sndlen >> 8);
       pudpbuf->len[1]      = (dev->d_sndlen & 0xff);
-      pudpbuf->nexthdr     = IP_PROTO_UDP;
-      pudpbuf->hoplimit    = conn->ttl;
+      pudpbuf->proto       = IP_PROTO_UDP;
+      pudpbuf->ttl         = conn->ttl;
 
-      net_ipaddr_copy(pudpbuf->srcipaddr, &dev->d_ipaddr);
-      net_ipaddr_copy(pudpbuf->destipaddr, &conn->ripaddr);
+      net_ipv6addr_copy(pudpbuf->srcipaddr, &dev->d_ipaddr);
+      net_ipav6ddr_copy(pudpbuf->destipaddr, &conn->u.ipv4.raddr);
 
 #else /* CONFIG_NET_IPv6 */
 
@@ -141,13 +142,13 @@ void udp_send(struct net_driver_s *dev, struct udp_conn_s *conn)
       pudpbuf->ttl         = conn->ttl;
       pudpbuf->proto       = IP_PROTO_UDP;
 
-      net_ipaddr_hdrcopy(pudpbuf->srcipaddr, &dev->d_ipaddr);
-      net_ipaddr_hdrcopy(pudpbuf->destipaddr, &conn->ripaddr);
+      net_ipv4addr_hdrcopy(pudpbuf->srcipaddr, &dev->d_ipaddr);
+      net_ipv4addr_hdrcopy(pudpbuf->destipaddr, &conn->u.ipv4.raddr);
 
       /* Calculate IP checksum. */
 
       pudpbuf->ipchksum    = 0;
-      pudpbuf->ipchksum    = ~(ip_chksum(dev));
+      pudpbuf->ipchksum    = ~(ipv4_chksum(dev));
 
 #endif /* CONFIG_NET_IPv6 */
 

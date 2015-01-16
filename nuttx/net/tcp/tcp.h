@@ -90,7 +90,6 @@
 /****************************************************************************
  * Public Type Definitions
  ****************************************************************************/
-
 /* Representation of a TCP connection.
  *
  * The tcp_conn_s structure is used for identifying a connection. All
@@ -103,14 +102,12 @@
 struct net_driver_s;      /* Forward reference */
 struct devif_callback_s;  /* Forward reference */
 struct tcp_backlog_s;     /* Forward reference */
+struct tcp_hdr_s;         /* Forward reference */
 
 struct tcp_conn_s
 {
   dq_entry_t node;        /* Implements a doubly linked list */
-#ifdef CONFIG_NETDEV_MULTINIC
-  net_ipaddr_t lipaddr;   /* The bound local IP address */
-#endif
-  net_ipaddr_t ripaddr;   /* The IP address of the remote host */
+  union ip_binding_u u;   /* IP address binding */
   uint8_t  rcvseq[4];     /* The sequence number that we expect to
                            * receive next */
   uint8_t  sndseq[4];     /* The sequence number that was last sent by us */
@@ -272,7 +269,7 @@ extern "C"
 struct tcp_iphdr_s; /* Forward reference */
 
 /****************************************************************************
- * Name: tcp_initialize()
+ * Name: tcp_initialize
  *
  * Description:
  *   Initialize the TCP/IP connection structures.  Called only once and only
@@ -283,12 +280,12 @@ struct tcp_iphdr_s; /* Forward reference */
 void tcp_initialize(void);
 
 /****************************************************************************
- * Name: tcp_alloc()
+ * Name: tcp_alloc
  *
  * Description:
  *   Find a free TCP/IP connection structure and allocate it
  *   for use.  This is normally something done by the implementation of the
- *   socket() API but is also called from the interrupt level when a TCP
+ *   socket() API but is also called from the driver level when a TCP
  *   packet is received while "listening"
  *
  ****************************************************************************/
@@ -296,7 +293,7 @@ void tcp_initialize(void);
 FAR struct tcp_conn_s *tcp_alloc(void);
 
 /****************************************************************************
- * Name: tcp_free()
+ * Name: tcp_free
  *
  * Description:
  *   Free a connection structure that is no longer in use. This should be
@@ -307,51 +304,51 @@ FAR struct tcp_conn_s *tcp_alloc(void);
 void tcp_free(FAR struct tcp_conn_s *conn);
 
 /****************************************************************************
- * Name: tcp_active()
+ * Name: tcp_active
  *
  * Description:
  *   Find a connection structure that is the appropriate
  *   connection to be used with the provided TCP/IP header
  *
  * Assumptions:
- *   This function is called from UIP logic at interrupt level
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
-FAR struct tcp_conn_s *tcp_active(struct tcp_iphdr_s *buf);
+FAR struct tcp_conn_s *tcp_active(FAR struct net_driver_s *dev,
+                                  FAR struct tcp_hdr_s *tcp);
 
 /****************************************************************************
- * Name: tcp_nextconn()
+ * Name: tcp_nextconn
  *
  * Description:
  *   Traverse the list of active TCP connections
  *
  * Assumptions:
- *   This function is called from UIP logic at interrupt level (or with
- *   interrupts disabled).
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
 FAR struct tcp_conn_s *tcp_nextconn(FAR struct tcp_conn_s *conn);
 
 /****************************************************************************
- * Name: tcp_alloc_accept()
+ * Name: tcp_alloc_accept
  *
  * Description:
- *    Called when driver interrupt processing matches the incoming packet
- *    with a connection in LISTEN. In that case, this function will create
- *    a new connection and initialize it to send a SYNACK in return.
+ *    Called when driver processing matches the incoming packet with a
+ *    connection in LISTEN. In that case, this function will create a new
+ *    connection and initialize it to send a SYNACK in return.
  *
  * Assumptions:
- *   This function is called from UIP logic at interrupt level
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
 FAR struct tcp_conn_s *tcp_alloc_accept(FAR struct net_driver_s *dev,
-                                        FAR struct tcp_iphdr_s *buf);
+                                        FAR struct tcp_hdr_s *tcp);
 
 /****************************************************************************
- * Name: tcp_bind()
+ * Name: tcp_bind
  *
  * Description:
  *   This function implements the lower level parts of the standard TCP
@@ -409,7 +406,7 @@ int tcp_connect(FAR struct tcp_conn_s *conn,
  *   Set the TCP/IP sequence number
  *
  * Assumptions:
- *   This function may called from the interrupt level
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -422,7 +419,7 @@ void tcp_setsequence(FAR uint8_t *seqno, uint32_t value);
  *   Get the TCP/IP sequence number
  *
  * Assumptions:
- *   This function may called from the interrupt level
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -435,7 +432,7 @@ uint32_t tcp_getsequence(FAR uint8_t *seqno);
  *   Add the length to get the next TCP sequence number.
  *
  * Assumptions:
- *   This function may called from the interrupt level
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -449,7 +446,7 @@ uint32_t tcp_addsequence(FAR uint8_t *seqno, uint16_t len);
  *   established.
  *
  * Assumptions:
- *   This function may called from the interrupt level
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -462,7 +459,7 @@ void tcp_initsequence(FAR uint8_t *seqno);
  *   Increment the TCP/IP sequence number
  *
  * Assumptions:
- *   This function is called from the interrupt level
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -483,7 +480,7 @@ void tcp_nextsequence(void);
  *   None
  *
  * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -505,7 +502,7 @@ void tcp_poll(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn);
  *   None
  *
  * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -560,7 +557,7 @@ int tcp_listen(FAR struct tcp_conn_s *conn);
  *   Return true is there is a listener for the specified port
  *
  * Assumptions:
- *   Called at interrupt level
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -573,7 +570,7 @@ bool tcp_islistener(uint16_t portno);
  *   Accept the new connection for the specified listening port.
  *
  * Assumptions:
- *   Called at interrupt level
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -597,7 +594,7 @@ int tcp_accept_connection(FAR struct net_driver_s *dev,
  *   None
  *
  * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -617,7 +614,7 @@ void tcp_send(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
  *   None
  *
  * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -638,7 +635,7 @@ void tcp_reset(FAR struct net_driver_s *dev);
  *   None
  *
  * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -663,7 +660,7 @@ void tcp_ack(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
  *   None
  *
  * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -685,7 +682,7 @@ void tcp_appsend(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
  *   None
  *
  * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -694,10 +691,10 @@ void tcp_rexmit(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
 
 /* Defined in tcp_input.c ***************************************************/
 /****************************************************************************
- * Name: tcp_input
+ * Name: tcp_ipv4_input
  *
  * Description:
- *   Handle incoming TCP input
+ *   Handle incoming TCP input with IPv4 header
  *
  * Parameters:
  *   dev - The device driver structure containing the received TCP packet.
@@ -706,11 +703,34 @@ void tcp_rexmit(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
  *   None
  *
  * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
+ *   Called from the Ethernet driver with the network stack locked
  *
  ****************************************************************************/
 
-void tcp_input(FAR struct net_driver_s *dev);
+#ifdef CONFIG_NET_IPv4
+void tcp_ipv4_input(FAR struct net_driver_s *dev);
+#endif
+
+/****************************************************************************
+ * Name: tcp_ipv6_input
+ *
+ * Description:
+ *   Handle incoming TCP input with IPv4 header
+ *
+ * Parameters:
+ *   dev - The device driver structure containing the received TCP packet.
+ *
+ * Return:
+ *   None
+ *
+ * Assumptions:
+ *   Called from the Ethernet driver with the network stack locked
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NET_IPv6
+void tcp_ipv6_input(FAR struct net_driver_s *dev);
+#endif
 
 /* Defined in tcp_callback.c ************************************************/
 /****************************************************************************
@@ -720,7 +740,7 @@ void tcp_input(FAR struct net_driver_s *dev);
  *   Inform the application holding the TCP socket of a change in state.
  *
  * Assumptions:
- *   This function is called at the interrupt level with interrupts disabled.
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -749,7 +769,7 @@ uint16_t tcp_callback(FAR struct net_driver_s *dev,
  * Assumptions:
  * - The caller has checked that TCP_NEWDATA is set in flags and that is no
  *   other handler available to process the incoming data.
- * - This function is called at the interrupt level with interrupts disabled.
+ * - Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -788,8 +808,7 @@ int tcp_backlogcreate(FAR struct tcp_conn_s *conn, int nblg);
  *   is freed that has pending connections.
  *
  * Assumptions:
- *   The caller has disabled interrupts so that there can be no conflict
- *   with ongoing, interrupt driven activity
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -808,7 +827,7 @@ int tcp_backlogdestroy(FAR struct tcp_conn_s *conn);
  *  function adds the new connection to the backlog.
  *
  * Assumptions:
- *   Called from the interrupt level with interrupts disabled
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -864,7 +883,7 @@ FAR struct tcp_conn_s *tcp_backlogremove(FAR struct tcp_conn_s *conn);
  *  to remove the defunct connection from the list.
  *
  * Assumptions:
- *   Called from the interrupt level with interrupts disabled
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 
@@ -984,7 +1003,7 @@ FAR struct tcp_wrbuffer_s *tcp_wrbuffer_alloc(void);
  *   buffered data.
  *
  * Assumptions:
- *   Called from interrupt level with interrupts disabled.
+ *   Called from network stack logic with the network stack locked
  *
  ****************************************************************************/
 

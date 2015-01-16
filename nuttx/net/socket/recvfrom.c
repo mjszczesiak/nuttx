@@ -74,8 +74,13 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define UDPBUF ((struct udp_iphdr_s *)&dev->d_buf[NET_LL_HDRLEN(dev)])
-#define TCPBUF ((struct tcp_iphdr_s *)&dev->d_buf[NET_LL_HDRLEN(dev)])
+#if defined(CONFIG_NET_IPv4)
+#  define UDPBUF ((struct udp_iphdr_s *)&dev->d_buf[NET_LL_HDRLEN(dev)])
+#  define TCPBUF ((struct tcp_iphdr_s *)&dev->d_buf[NET_LL_HDRLEN(dev)])
+#elif defined(CONFIG_NET_IPv6)
+#  define UDPBUF ((struct udp_ipv6hdr_s *)&dev->d_buf[NET_LL_HDRLEN(dev)])
+#  define TCPBUF ((struct tcp_ipv6hdr_s *)&dev->d_buf[NET_LL_HDRLEN(dev)])
+#endif
 
 /****************************************************************************
  * Private Types
@@ -579,10 +584,10 @@ static inline void recvfrom_tcpsender(FAR struct net_driver_s *dev,
       infrom->sin_port   = TCPBUF->srcport;
 
 #ifdef CONFIG_NET_IPv6
-      net_ipaddr_copy(infrom->sin6_addr.s6_addr, TCPBUF->srcipaddr);
+      net_ipv6addr_copy(infrom->sin6_addr.s6_addr, TCPBUF->srcipaddr);
 #else
-      net_ipaddr_copy(infrom->sin_addr.s_addr,
-                      net_ip4addr_conv32(TCPBUF->srcipaddr));
+      net_ipv4addr_copy(infrom->sin_addr.s_addr,
+                        net_ip4addr_conv32(TCPBUF->srcipaddr));
 #endif
     }
 }
@@ -826,10 +831,10 @@ static inline void recvfrom_udpsender(struct net_driver_s *dev, struct recvfrom_
       infrom->sin_port   = UDPBUF->srcport;
 
 #ifdef CONFIG_NET_IPv6
-      net_ipaddr_copy(infrom->sin6_addr.s6_addr, UDPBUF->srcipaddr);
+      net_ipv6addr_copy(infrom->sin6_addr.s6_addr, UDPBUF->srcipaddr);
 #else
-      net_ipaddr_copy(infrom->sin_addr.s_addr,
-                      net_ip4addr_conv32(UDPBUF->srcipaddr));
+      net_ipv4addr_copy(infrom->sin_addr.s_addr,
+                        net_ip4addr_conv32(UDPBUF->srcipaddr));
 #endif
     }
 }
@@ -1092,9 +1097,9 @@ static ssize_t pkt_recvfrom(FAR struct socket *psock, FAR void *buf, size_t len,
 
 #if 0 /* No */
 #ifdef CONFIG_NET_MULTILINK
-      netdev_rxnotify(conn->lipaddr, conn->ripaddr);
+      netdev_ipv4_rxnotify(conn->u.ipv4.laddr, conn->u.ipv4.raddr);
 #else
-      netdev_rxnotify(conn->ripaddr);
+      netdev_ipv4_rxnotify(conn->u.ipv4.raddr);
 #endif
 #endif
 
@@ -1191,9 +1196,9 @@ static ssize_t udp_recvfrom(FAR struct socket *psock, FAR void *buf, size_t len,
       /* Notify the device driver of the receive call */
 
 #ifdef CONFIG_NET_MULTILINK
-      netdev_rxnotify(conn->lipaddr, conn->ripaddr);
+      netdev_ipv4_rxnotify(conn->u.ipv4.laddr, conn->u.ipv4.raddr);
 #else
-      netdev_rxnotify(conn->ripaddr);
+      netdev_ipv4_rxnotify(conn->u.ipv4.raddr);
 #endif
 
       /* Wait for either the receive to complete or for an error/timeout to occur.
