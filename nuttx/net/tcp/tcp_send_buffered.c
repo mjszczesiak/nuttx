@@ -78,6 +78,13 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
+/* If both IPv4 and IPv6 support are both enabled, then we will need to build
+ * in some additional domain selection support.
+ */
+
+#if defined(CONFIG_NET_IPv4) && defined(CONFIG_NET_IPv6)
+#  define NEED_IPDOMAIN_SUPPORT 1
+#endif
 
 #if defined(CONFIG_NET_IPv4)
 #  define TCPBUF ((struct tcp_iphdr_s *)&dev->d_buf[NET_LL_HDRLEN(dev)])
@@ -198,6 +205,49 @@ static inline void psock_lost_connection(FAR struct socket *psock,
   sq_init(&conn->write_q);
   conn->sent = 0;
 }
+
+/****************************************************************************
+ * Function: send_ipselect
+ *
+ * Description:
+ *   If both IPv4 and IPv6 support are enabled, then we will need to select
+ *   which one to use when generating the outgoing packet.  If only one
+ *   domain is selected, then the setup is already in place and we need do
+ *   nothing.
+ *
+ * Parameters:
+ *   dev   - The structure of the network driver that caused the interrupt
+ *   psock - Socket state structure
+ *
+ * Returned Value:
+ *   None
+ *
+ * Assumptions:
+ *   Running at the interrupt level
+ *
+ ****************************************************************************/
+
+#ifdef NEED_IPDOMAIN_SUPPORT
+static inline void send_ipselect(FAR struct net_driver_s *dev,
+                                 FAR struct socket *psock)
+{
+  /* Which domain the the socket support */
+
+  if (psock->s_domain == PF_INET)
+    {
+      /* Select the IPv4 domain */
+
+      tcp_ipv4_select(dev);
+    }
+  else /* if (psock->s_domain == PF_INET6) */
+    {
+      /* Select the IPv6 domain */
+
+      DEBUGASSERT(psock->s_domain == PF_INET6);
+      tcp_ipv4_select(dev);
+    }
+}
+#endif
 
 /****************************************************************************
  * Function: psock_send_interrupt
@@ -605,6 +655,15 @@ static uint16_t psock_send_interrupt(FAR struct net_driver_s *dev,
 
           tcp_setsequence(conn->sndseq, WRB_SEQNO(wrb) + WRB_SENT(wrb));
 
+#ifdef NEED_IPDOMAIN_SUPPORT
+          /* If both IPv4 and IPv6 support are enabled, then we will need to
+           * select which one to use when generating the outgoing packet.
+           * If only one domain is selected, then the setup is already in
+           * place and we need do nothing.
+           */
+
+          send_ipselect(dev, psock);
+#endif
           /* Then set-up to send that amount of data with the offset
            * corresponding to the amount of data already sent. (this
            * won't actually happen until the polling cycle completes).
@@ -664,6 +723,61 @@ static uint16_t psock_send_interrupt(FAR struct net_driver_s *dev,
   /* Continue waiting */
 
   return flags;
+}
+
+/****************************************************************************
+ * Function: send_txnotify
+ *
+ * Description:
+ *   Notify the appropriate device driver that we are have data ready to
+ *   be send (TCP)
+ *
+ * Parameters:
+ *   psock - Socket state structure
+ *   conn  - The TCP connection structure
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+static inline void send_txnotify(FAR struct socket *psock,
+                                 FAR struct tcp_conn_s *conn)
+{
+#ifdef CONFIG_NET_IPv4
+#ifdef CONFIG_NET_IPv6
+  /* If both IPv4 and IPv6 support are enabled, then we will need to select
+   * the device driver using the appropriate IP domain.
+   */
+
+  if (psock->s_domain == PF_INET)
+#endif
+    {
+      /* Notify the device driver that send data is available */
+
+#ifdef CONFIG_NET_MULTILINK
+      netdev_ipv4_txnotify(conn->u.ipv4.laddr, conn->u.ipv4.raddr);
+#else
+      netdev_ipv4_txnotify(conn->u.ipv4.raddr);
+#endif
+    }
+#endif /* CONFIG_NET_IPv4 */
+
+#ifdef CONFIG_NET_IPv6
+#ifdef CONFIG_NET_IPv4
+  else /* if (psock->s_domain == PF_INET6) */
+#endif /* CONFIG_NET_IPv4 */
+    {
+      /* Notify the device driver that send data is available */
+
+      DEBUGASSERT(psock->s_domain == PF_INET6);
+#ifdef CONFIG_NET_MULTILINK
+      netdev_ipv6_txnotify(conn->u.ipv6.laddr, conn->u.ipv6.raddr);
+#else
+      netdev_ipv6_txnotify(conn->u.ipv6.raddr);
+#endif
+    }
+#endif /* CONFIG_NET_IPv6 */
 }
 
 /****************************************************************************
@@ -828,11 +942,7 @@ ssize_t psock_tcp_send(FAR struct socket *psock, FAR const void *buf,
 
               /* Notify the device driver of the availability of TX data */
 
-#ifdef CONFIG_NET_MULTILINK
-              netdev_ipv4_txnotify(conn->u.ipv4.laddr, conn->u.ipv4.raddr);
-#else
-              netdev_ipv4_txnotify(conn->u.ipv4.raddr);
-#endif
+              send_txnotify(psock, conn);
               result = len;
             }
 

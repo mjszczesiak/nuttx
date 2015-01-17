@@ -1,5 +1,5 @@
 /****************************************************************************
- * net/icmpv6/icmpv6_poll.c
+ * net/udp/udp_ipselect.c
  *
  *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -38,27 +38,20 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#if defined(CONFIG_NET) && defined(CONFIG_NET_ICMPv6) && defined(CONFIG_NET_ICMPv6_PING)
+#ifdef CONFIG_NET
 
+#include <stdint.h>
 #include <debug.h>
 
-#include <nuttx/net/netconfig.h>
+#include <net/if.h>
 #include <nuttx/net/netdev.h>
-#include <nuttx/net/icmpv6.h>
+#include <nuttx/net/ip.h>
+#include <nuttx/net/udp.h>
 
-#include "devif/devif.h"
-#include "icmpv6/icmpv6.h"
-
-/****************************************************************************
- * Pre-processor Definitions
- ****************************************************************************/
+#include "udp/udp.h"
 
 /****************************************************************************
- * Public Variables
- ****************************************************************************/
-
-/****************************************************************************
- * Private Variables
+ * Private Data
  ****************************************************************************/
 
 /****************************************************************************
@@ -70,33 +63,49 @@
  ****************************************************************************/
 
 /****************************************************************************
- * Name: icmpv6_poll
+ * Function: udp_ipv4_select
  *
  * Description:
- *   Poll a UDP "connection" structure for availability of TX data
- *
- * Parameters:
- *   dev - The device driver structure to use in the send operation
- *
- * Return:
- *   None
- *
- * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
+ *   Configure to send or receive an UDP IPv4 packet
  *
  ****************************************************************************/
 
-void icmpv6_poll(FAR struct net_driver_s *dev)
+#ifdef CONFIG_NET_IPv4
+void udp_ipv4_select(FAR struct net_driver_s *dev)
 {
-  /* Setup for the application callback */
+#ifdef CONFIG_NET_IPv6
+  /* Clear a bit in the d_flags to distinguish this from an IPv6 packet */
 
-  dev->d_appdata = &dev->d_buf[NET_LL_HDRLEN(dev) + IPICMPv6_HDRLEN];
-  dev->d_len     = 0;
-  dev->d_sndlen  = 0;
+  IFF_SET_IPv4(dev->dflags);
+#endif
 
-  /* Perform the application callback */
+ /* Set the offset to the beginning of the UDP data payload */
 
-  (void)devif_callback_execute(dev, NULL, ICMPv6_POLL, g_echocallback);
+ dev->d_appdata = &dev->d_buf[IPv4UDP_HDRLEN + NET_LL_HDRLEN(dev)];
 }
+#endif /* CONFIG_NET_IPv4 */
 
-#endif /* CONFIG_NET && CONFIG_NET_ICMPv6 && CONFIG_NET_ICMPv6_PING */
+/****************************************************************************
+ * Function: udp_ipv6_select
+ *
+ * Description:
+ *   Configure to send or receive an UDP IPv6 packet
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NET_IPv6
+void udp_ipv6_select(FAR struct net_driver_s *dev)
+{
+#ifdef CONFIG_NET_IPv4
+  /* Set a bit in the d_flags to distinguish this from an IPv6 packet */
+
+  IFF_SET_IPv6(dev->dflags);
+#endif
+
+ /* Set the offset to the beginning of the UDP data payload */
+
+ dev->d_appdata = &dev->d_buf[IPv6UDP_HDRLEN + NET_LL_HDRLEN(dev)];
+}
+#endif /* CONFIG_NET_IPv6 */
+
+#endif /* CONFIG_NET */

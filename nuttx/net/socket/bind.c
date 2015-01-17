@@ -146,14 +146,6 @@ int psock_bind(FAR struct socket *psock, const struct sockaddr *addr,
 #ifdef CONFIG_NET_PKT
   FAR const struct sockaddr_ll *lladdr = (const struct sockaddr_ll *)addr;
 #endif
-#if defined(CONFIG_NET_TCP) || defined(CONFIG_NET_UDP)
-#ifdef CONFIG_NET_IPv6
-  FAR const struct sockaddr_in6 *inaddr = (const struct sockaddr_in6 *)addr;
-#else
-  FAR const struct sockaddr_in *inaddr = (const struct sockaddr_in *)addr;
-#endif
-#endif
-
   int err;
   int ret = OK;
 
@@ -204,14 +196,14 @@ int psock_bind(FAR struct socket *psock, const struct sockaddr *addr,
 
 #ifdef CONFIG_NET_TCP
       case SOCK_STREAM:
-        ret = tcp_bind(psock->s_conn, inaddr);
+        ret = tcp_bind(psock->s_conn, addr);
         psock->s_flags |= _SF_BOUND;
         break;
 #endif
 
 #ifdef CONFIG_NET_UDP
       case SOCK_DGRAM:
-        ret = udp_bind(psock->s_conn, inaddr);
+        ret = udp_bind(psock->s_conn, addr);
         break;
 #endif
 
