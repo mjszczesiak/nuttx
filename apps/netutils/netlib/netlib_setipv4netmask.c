@@ -1,7 +1,7 @@
 /****************************************************************************
- * examples/nettest/nettest.c
+ * netutils/netlib/netlib_setipv4netmask.c
  *
- *   Copyright (C) 2007, 2009-2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2011, 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,78 +38,68 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#if defined(CONFIG_NET_IPv4) && CONFIG_NSOCKET_DESCRIPTORS > 0
 
-#include <stdint.h>
-#include <stdio.h>
-#include <debug.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
 
-#include <net/if.h>
-#include <arpa/inet.h>
 #include <netinet/in.h>
+#include <net/if.h>
 
 #include <apps/netutils/netlib.h>
-
-#include "nettest.h"
-
-/****************************************************************************
- * Definitions
- ****************************************************************************/
-
-/****************************************************************************
- * Private Data
- ****************************************************************************/
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * nettest_main
+ * Name: netlib_set_ipv4netmask
+ *
+ * Description:
+ *   Set the PIv4 netmask
+ *
+ * Parameters:
+ *   ifname   The name of the interface to use
+ *   ipaddr   The address to set
+ *
+ * Return:
+ *   0 on success; -1 on failure
+ *
  ****************************************************************************/
 
-#ifdef CONFIG_BUILD_KERNEL
-int main(int argc, FAR char *argv[])
-#else
-int nettest_main(int argc, char *argv[])
-#endif
+int netlib_set_ipv4netmask(FAR const char *ifname,
+                           FAR const struct in_addr *addr)
 {
-  struct in_addr addr;
-#ifdef CONFIG_EXAMPLES_NETTEST_NOMAC
-  uint8_t mac[IFHWADDRLEN];
-#endif
+  int ret = ERROR;
 
-/* Many embedded network interfaces must have a software assigned MAC */
+  if (ifname && addr)
+    {
+      int sockfd = socket(PF_INET, NETLIB_SOCK_IOCTL, 0);
+      if (sockfd >= 0)
+        {
+          FAR struct sockaddr_in *inaddr;
+          struct ifreq req;
 
-#ifdef CONFIG_EXAMPLES_NETTEST_NOMAC
-  mac[0] = 0x00;
-  mac[1] = 0xe0;
-  mac[2] = 0xde;
-  mac[3] = 0xad;
-  mac[4] = 0xbe;
-  mac[5] = 0xef;
-  netlib_setmacaddr("eth0", mac);
-#endif
+          /* Add the device name to the request */
 
-  /* Set up our host address */
+          strncpy(req.ifr_name, ifname, IFNAMSIZ);
 
-  addr.s_addr = HTONL(CONFIG_EXAMPLES_NETTEST_IPADDR);
-  netlib_set_ipv4addr("eth0", &addr);
+          /* Add the INET address to the request */
 
-  /* Set up the default router address */
+          inaddr             = (FAR struct sockaddr_in *)&req.ifr_addr;
+          inaddr->sin_family = AF_INET;
+          inaddr->sin_port   = 0;
+          memcpy(&inaddr->sin_addr, addr, sizeof(struct in_addr));
 
-  addr.s_addr = HTONL(CONFIG_EXAMPLES_NETTEST_DRIPADDR);
-  netlib_set_dripv4addr("eth0", &addr);
+          ret = ioctl(sockfd, SIOCSIFNETMASK, (unsigned long)&req);
+          close(sockfd);
+        }
+    }
 
-  /* Setup the subnet mask */
-
-  addr.s_addr = HTONL(CONFIG_EXAMPLES_NETTEST_NETMASK);
-  netlib_set_ipv4netmask("eth0", &addr);
-
-#ifdef CONFIG_EXAMPLES_NETTEST_SERVER
-  recv_server();
-#else
-  send_client();
-#endif
-
-  return 0;
+  return ret;
 }
+
+#endif /* CONFIG_NET_IPv4 && CONFIG_NSOCKET_DESCRIPTORS */

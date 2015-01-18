@@ -1,5 +1,5 @@
 /****************************************************************************
- * netutils/netlib/netlib_getifflag.c
+ * netutils/netlib/netlib_getifstatus.c
  *
  *   Copyright (C) 2007-2009, 2011, 2014 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -54,7 +54,7 @@
 #include <apps/netutils/netlib.h>
 
 /****************************************************************************
- * Global Functions
+ * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
@@ -68,7 +68,7 @@
  *   flags    The interface flags returned by SIOCGIFFLAGS
  *
  * Return:
- *   0 on sucess; -1 on failure
+ *   0 on success; -1 on failure
  *
  ****************************************************************************/
 
