@@ -134,7 +134,7 @@ static uint16_t arp_send_interrupt(FAR struct net_driver_s *dev,
        * flag will be cleared in arp_out().
        */
 
-      dev->d_flags |= IFF_NOARP;
+      IFF_SET_NOARP(dev->d_flags);
 
       /* Don't allow any further call backs. */
 
@@ -264,7 +264,7 @@ int arp_send(in_addr_t ipaddr)
        * destination address when determining the MAC address.
        */
 
-      netdev_router(dev, ipaddr, &dripaddr);
+      netdev_ipv4_router(dev, ipaddr, &dripaddr);
 #else
       /* Use the device's default router IP address instead of the
        * destination address when determining the MAC address.

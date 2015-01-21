@@ -70,8 +70,8 @@
 
 /* Allocate a new ICMPv6 data callback */
 
-#define icmpv6_callback_alloc()   devif_callback_alloc(&g_echocallback)
-#define icmpv6_callback_free(cb)  devif_callback_free(cb, &g_echocallback)
+#define icmpv6_callback_alloc()   devif_callback_alloc(&g_icmpv6_echocallback)
+#define icmpv6_callback_free(cb)  devif_callback_free(cb, &g_icmpv6_echocallback)
 
 /****************************************************************************
  * Private Types
@@ -297,7 +297,7 @@ end_wait:
  ****************************************************************************/
 
 /****************************************************************************
- * Name: imcp_ping
+ * Name: imcpv6_ping
  *
  * Description:
  *   Send a ECHO request and wait for the ECHO response

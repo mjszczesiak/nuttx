@@ -731,8 +731,10 @@ static inline void tiva_txavail_process(FAR struct tiva_ethmac_s *priv);
 static void tiva_txavail_work(FAR void *arg);
 #endif
 static int  tiva_txavail(struct net_driver_s *dev);
-#ifdef CONFIG_NET_IGMP
+#if defined(CONFIG_NET_IGMP) || defined(CONFIG_NET_ICMPv6)
 static int  tiva_addmac(struct net_driver_s *dev, FAR const uint8_t *mac);
+#endif
+#ifdef CONFIG_NET_IGMP
 static int  tiva_rmmac(struct net_driver_s *dev, FAR const uint8_t *mac);
 #endif
 #ifdef CONFIG_NETDEV_PHY_IOCTL
@@ -761,6 +763,9 @@ static inline void tiva_phy_initialize(FAR struct tiva_ethmac_s *priv);
 static void tiva_ethreset(FAR struct tiva_ethmac_s *priv);
 static int  tiva_macconfig(FAR struct tiva_ethmac_s *priv);
 static void tiva_macaddress(FAR struct tiva_ethmac_s *priv);
+#ifdef CONFIG_NET_ICMPv6
+static void tiva_ipv6multicast(FAR struct tiva_ethmac_s *priv);
+#endif
 static int  tiva_macenable(FAR struct tiva_ethmac_s *priv);
 static int  tive_emac_configure(FAR struct tiva_ethmac_s *priv);
 
@@ -1246,9 +1251,30 @@ static int tiva_txpoll(struct net_driver_s *dev)
 
   if (priv->dev.d_len > 0)
     {
+      /* Look up the destination MAC address and add it to the Ethernet
+       * header.
+       */
+
+#ifdef CONFIG_NET_IPv4
+#ifdef CONFIG_NET_IPv6
+      if (IFF_IS_IPv4(priv->dev.d_flags))
+#endif
+        {
+          arp_out(&priv->dev);
+        }
+#endif /* CONFIG_NET_IPv4 */
+
+#ifdef CONFIG_NET_IPv6
+#ifdef CONFIG_NET_IPv4
+      else
+#endif
+        {
+          neighbor_out(&priv->dev);
+        }
+#endif /* CONFIG_NET_IPv6 */
+
       /* Send the packet */
 
-      arp_out(&priv->dev);
       tiva_transmit(priv);
       DEBUGASSERT(dev->d_len == 0 && dev->d_buf == NULL);
 
@@ -1709,12 +1735,17 @@ static void tiva_receive(FAR struct tiva_ethmac_s *priv)
               /* Update the Ethernet header with the correct MAC address */
 
 #ifdef CONFIG_NET_IPv6
-              if (BUF->type == HTONS(ETHTYPE_IP))
+              if (IFF_IS_IPv4(priv->dev.d_flags))
 #endif
                 {
                   arp_out(&priv->dev);
                 }
-
+#ifdef CONFIG_NET_IPv6
+              else
+                {
+                  neighbor_out(&priv->dev);
+                }
+#endif
               /* And send the packet */
 
               tiva_transmit(priv);
@@ -1725,7 +1756,7 @@ static void tiva_receive(FAR struct tiva_ethmac_s *priv)
 #ifdef CONFIG_NET_IPv6
       if (BUF->type == HTONS(ETHTYPE_IP6))
         {
-          nllvdbg("Iv6 frame\n");
+          nllvdbg("IPv6 frame\n");
 
           /* Give the IPv6 packet to the network layer */
 
@@ -1737,12 +1768,18 @@ static void tiva_receive(FAR struct tiva_ethmac_s *priv)
 
           if (priv->dev.d_len > 0)
            {
-#ifdef CONFIG_NET_IPv4
               /* Update the Ethernet header with the correct MAC address */
 
-              if (BUF->type == HTONS(ETHTYPE_IP))
+#ifdef CONFIG_NET_IPv4
+              if (IFF_IS_IPv4(priv->dev.d_flags))
                 {
                   arp_out(&priv->dev);
+                }
+              else
+#endif
+#ifdef CONFIG_NET_IPv6
+                {
+                  neighbor_out(&priv->dev);
                 }
 #endif
 
@@ -2643,7 +2680,7 @@ static int tiva_txavail(struct net_driver_s *dev)
  *
  ****************************************************************************/
 
-#ifdef CONFIG_NET_IGMP
+#if defined(CONFIG_NET_IGMP) || defined(CONFIG_NET_ICMPv6)
 static uint32_t tiva_calcethcrc(const uint8_t *data, size_t length)
 {
   uint32_t crc = 0xffffffff;
@@ -2668,7 +2705,7 @@ static uint32_t tiva_calcethcrc(const uint8_t *data, size_t length)
 
   return ~crc;
 }
-#endif
+#endif /* CONFIG_NET_IGMP || CONFIG_NET_ICMPv6 */
 
 /****************************************************************************
  * Function: tiva_addmac
@@ -2688,7 +2725,7 @@ static uint32_t tiva_calcethcrc(const uint8_t *data, size_t length)
  *
  ****************************************************************************/
 
-#ifdef CONFIG_NET_IGMP
+#if defined(CONFIG_NET_IGMP) || defined(CONFIG_NET_ICMPv6)
 static int tiva_addmac(struct net_driver_s *dev, FAR const uint8_t *mac)
 {
   uint32_t crc;
@@ -3805,7 +3842,7 @@ static int tiva_macconfig(FAR struct tiva_ethmac_s *priv)
 
   if (priv->mbps100)
     {
-      /* Set the FES bit for 100Mbps fast ethernet support */
+      /* Set the FES bit for 100Mbps fast Ethernet support */
 
       regval |= EMAC_CFG_FES;
     }
@@ -3896,6 +3933,60 @@ static void tiva_macaddress(FAR struct tiva_ethmac_s *priv)
 }
 
 /****************************************************************************
+ * Function: tiva_ipv6multicast
+ *
+ * Description:
+ *   Configure the IPv6 multicast MAC address.
+ *
+ * Parameters:
+ *   priv - A reference to the private driver state structure
+ *
+ * Returned Value:
+ *   OK on success; Negated errno on failure.
+ *
+ * Assumptions:
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NET_ICMPv6
+static void tiva_ipv6multicast(FAR struct tiva_ethmac_s *priv)
+{
+  struct net_driver_s *dev;
+  uint16_t tmp16;
+  uint8_t mac[6];
+
+  /* For ICMPv6, we need to add the IPv6 multicast address
+   *
+   * For IPv6 multicast addresses, the Ethernet MAC is derived by
+   * the four low-order octets OR'ed with the MAC 33:33:00:00:00:00,
+   * so for example the IPv6 address FF02:DEAD:BEEF::1:3 would map
+   * to the Ethernet MAC address 33:33:00:01:00:03.
+   *
+   * NOTES:  This appears correct for the ICMPv6 Router Solicitation
+   * Message, but the ICMPv6 Neighbor Solicitation message seems to
+   * use 33:33:ff:01:00:03.
+   */
+
+  mac[0] = 0x33;
+  mac[1] = 0x33;
+
+  dev    = &priv->dev;
+  tmp16  = dev->d_ipv6addr[6];
+  mac[2] = 0xff;
+  mac[3] = tmp16 >> 8;
+
+  tmp16  = dev->d_ipv6addr[7];
+  mac[4] = tmp16 & 0xff;
+  mac[5] = tmp16 >> 8;
+
+  nvdbg("IPv6 Multicast: %02x:%02x:%02x:%02x:%02x:%02x\n",
+        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+  (void)tiva_addmac(dev, mac);
+}
+#endif /* CONFIG_NET_ICMPv6 */
+
+/****************************************************************************
  * Function: tiva_macenable
  *
  * Description:
@@ -3918,6 +4009,12 @@ static int tiva_macenable(FAR struct tiva_ethmac_s *priv)
   /* Set the MAC address */
 
   tiva_macaddress(priv);
+
+#ifdef CONFIG_NET_ICMPv6
+  /* Set up the IPv6 multicast address */
+
+  tiva_ipv6multicast(priv);
+#endif
 
   /* Enable transmit state machine of the MAC for transmission on the MII */
 

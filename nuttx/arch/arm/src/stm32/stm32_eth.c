@@ -53,8 +53,8 @@
 #include <nuttx/arch.h>
 #include <nuttx/irq.h>
 #include <nuttx/wdog.h>
-#include <nuttx/net/mii.h>
 
+#include <nuttx/net/mii.h>
 #include <nuttx/net/arp.h>
 #include <nuttx/net/netdev.h>
 #if defined(CONFIG_NET_PKT)
@@ -1175,9 +1175,30 @@ static int stm32_txpoll(struct net_driver_s *dev)
 
   if (priv->dev.d_len > 0)
     {
+      /* Look up the destination MAC address and add it to the Ethernet
+       * header.
+       */
+
+#ifdef CONFIG_NET_IPv4
+#ifdef CONFIG_NET_IPv6
+      if (IFF_IS_IPv4(priv->dev.d_flags))
+#endif
+        {
+          arp_out(&priv->dev);
+        }
+#endif /* CONFIG_NET_IPv4 */
+
+#ifdef CONFIG_NET_IPv6
+#ifdef CONFIG_NET_IPv4
+      else
+#endif
+        {
+          neighbor_out(&priv->dev);
+        }
+#endif /* CONFIG_NET_IPv6 */
+
       /* Send the packet */
 
-      arp_out(&priv->dev);
       stm32_transmit(priv);
       DEBUGASSERT(dev->d_len == 0 && dev->d_buf == NULL);
 
@@ -1612,8 +1633,14 @@ static void stm32_receive(FAR struct stm32_ethmac_s *priv)
       if (dev->d_len > CONFIG_NET_ETH_MTU)
         {
           nlldbg("DROPPED: Too big: %d\n", dev->d_len);
+          continue;
         }
-      else
+
+#ifdef CONFIG_NET_PKT
+  /* When packet sockets are enabled, feed the frame into the packet tap */
+
+   pkt_input(&priv->dev);
+#endif
 
       /* We only accept IP packets of the configured type and ARP packets */
 
@@ -1638,11 +1665,17 @@ static void stm32_receive(FAR struct stm32_ethmac_s *priv)
               /* Update the Ethernet header with the correct MAC address */
 
 #ifdef CONFIG_NET_IPv6
-              if (BUF->type == HTONS(ETHTYPE_IP))
+              if (IFF_IS_IPv4(priv->dev.d_flags))
 #endif
                 {
                   arp_out(&priv->dev);
                 }
+#ifdef CONFIG_NET_IPv6
+              else
+                {
+                  neighbor_out(&priv->dev);
+                }
+#endif
 
               /* And send the packet */
 
@@ -1666,12 +1699,18 @@ static void stm32_receive(FAR struct stm32_ethmac_s *priv)
 
           if (priv->dev.d_len > 0)
            {
-#ifdef CONFIG_NET_IPv4
               /* Update the Ethernet header with the correct MAC address */
 
-              if (BUF->type == HTONS(ETHTYPE_IP))
+#ifdef CONFIG_NET_IPv4
+              if (IFF_IS_IPv4(priv->dev.d_flags))
                 {
                   arp_out(&priv->dev);
+                }
+              else
+#endif
+#ifdef CONFIG_NET_IPv6
+                {
+                  neighbor_out(&priv->dev);
                 }
 #endif
 
