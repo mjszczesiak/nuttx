@@ -1,8 +1,8 @@
-/****************************************************************************
- * examples/udp/host.c
+/*****************************************************************************
+ * arch/arm/src/efm32/efm32_rmu.h
  *
- *   Copyright (C) 2007 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *   Copyright (C) 2015 Pierre-noel Bouteville . All rights reserved.
+ *   Authors: Pierre-noel Bouteville <pnb990@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,7 +14,7 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name Gregory Nutt nor the names of its contributors may be
+ * 3. Neither the name NuttX nor the names of its contributors may be
  *    used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,32 +33,36 @@
  *
  ****************************************************************************/
 
+#ifndef __ARCH_ARM_SRC_EFM32_EFM32_RMU_H
+#define __ARCH_ARM_SRC_EFM32_EFM32_RMU_H
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
-#include "config.h"
-#include "udp-internal.h"
+#include <nuttx/config.h>
+#include "chip/efm32_rmu.h"
+
+#ifdef CONFIG_EFM32_RMU
 
 /****************************************************************************
- * Private Data
+ * Public Data
  ****************************************************************************/
+
+extern uint32_t g_efm32_rstcause;
 
 /****************************************************************************
- * Public Functions
+ * Public Function Prototypes
  ****************************************************************************/
+/************************************************************************************
+ * Name: efm32_rmu_initialize
+ *
+ * Description:
+ *    Store reset cause into g_efm32_rstcause then clear reset cause register.
+ *
+ ************************************************************************************/
 
-/****************************************************************************
- * main
- ****************************************************************************/
+void efm32_rmu_initialize(void);
 
-int main(int argc, char **argv, char **envp)
-{
-#ifdef CONFIG_EXAMPLES_UDP_SERVER
-  send_client();
-#else
-  recv_server();
-#endif
-
-  return 0;
-}
+#endif /* CONFIG_EFM32_RMU */
+#endif /* __ARCH_ARM_SRC_EFM32_EFM32_RMU_H */

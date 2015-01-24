@@ -1,7 +1,7 @@
 /****************************************************************************
- * examples/udp/host.c
+ * include/sys/un.h
  *
- *   Copyright (C) 2007 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -14,7 +14,7 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name Gregory Nutt nor the names of its contributors may be
+ * 3. Neither the name NuttX nor the names of its contributors may be
  *    used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,32 +33,60 @@
  *
  ****************************************************************************/
 
+#ifndef __INCLUDE_SYS_UN_H
+#define __INCLUDE_SYS_UN_H
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
-#include "config.h"
-#include "udp-internal.h"
+/* The sys/un.> header defines the type sa_family_t as described in
+ * sys/socket.h. 
+ */
+
+#include <sys/socket.h>
 
 /****************************************************************************
- * Private Data
+ * Pre-Processor Definitions
  ****************************************************************************/
+
+/* The size of sun_path is not specified. Different implementations us
+ * different sizes. BSD4.3 uses a size of 108; BSD4.4 uses a size of 104.
+ * Most implementation use a size that ranges from 92 to 108. Applications
+ * should not assume a particular length for sun_path.
+ *
+ * _POSIX_PATH_MAX would be a good choice too.
+ */
+
+#define UNIX_PATH_MAX  108
 
 /****************************************************************************
- * Public Functions
+ * Public Type Definitions
  ****************************************************************************/
 
-/****************************************************************************
- * main
- ****************************************************************************/
+/* A UNIX domain socket address is represented in the following structure.
+ * This structure must be cast compatible with struct sockaddr.
+ */
 
-int main(int argc, char **argv, char **envp)
+struct sockaddr_un
 {
-#ifdef CONFIG_EXAMPLES_UDP_SERVER
-  send_client();
-#else
-  recv_server();
-#endif
+  sa_family_t sun_family;        /* AF_UNIX */
+  char sun_path[UNIX_PATH_MAX];  /* pathname */
+};
 
-  return 0;
-}
+/* There are three types of addresses:
+ *
+ * 1. pathname:  sun_path holds a null terminated string.  The allocated
+ *    size may be variable:  sizeof(sa_family_t) + strlen(pathname) + 1
+ * 2. unnamed:  A unix socket that is not bound to any name.  This case
+ *    there is no path.  The allocated size may be sizeof(sa_family_t)
+ * 3. abstract. The abstract path is destinguished because the pathname
+ *    consists of only the NUL terminator.  The allocated size is then
+ *    sizeof(s_family_t) + 1.
+ */
+
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
+
+#endif /* __INCLUDE_SYS_UN_H */
