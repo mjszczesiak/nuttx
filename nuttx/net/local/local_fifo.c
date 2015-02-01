@@ -76,6 +76,7 @@
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_STREAM
 static inline void local_cs_name(FAR struct local_conn_s *conn,
                                  FAR char *path)
 {
@@ -83,6 +84,7 @@ static inline void local_cs_name(FAR struct local_conn_s *conn,
                  conn->lc_path);
   path[LOCAL_FULLPATH_LEN-1] = '\0';
 }
+#endif /* CONFIG_NET_LOCAL_STREAM */
 
 /****************************************************************************
  * Name: local_sc_name
@@ -92,6 +94,7 @@ static inline void local_cs_name(FAR struct local_conn_s *conn,
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_STREAM
 static inline void local_sc_name(FAR struct local_conn_s *conn,
                                  FAR char *path)
 {
@@ -99,6 +102,7 @@ static inline void local_sc_name(FAR struct local_conn_s *conn,
                  conn->lc_path);
   path[LOCAL_FULLPATH_LEN-1] = '\0';
 }
+#endif /* CONFIG_NET_LOCAL_STREAM */
 
 /****************************************************************************
  * Name: local_hd_name
@@ -108,11 +112,13 @@ static inline void local_sc_name(FAR struct local_conn_s *conn,
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_DGRAM
 static inline void local_hd_name(FAR const char *inpath, FAR char *outpath)
 {
   (void)snprintf(outpath, LOCAL_FULLPATH_LEN-1, "%s" LOCAL_HD_SUFFIX, inpath);
   outpath[LOCAL_FULLPATH_LEN-1] = '\0';
 }
+#endif /* CONFIG_NET_LOCAL_DGRAM */
 
 /****************************************************************************
  * Name: local_fifo_exists
@@ -185,19 +191,20 @@ static int local_create_fifo(FAR const char *path)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_STREAM /* Currently not used by datagram code */
 static int local_release_fifo(FAR const char *path)
 {
+  int ret;
+
   /* Unlink the client-to-server FIFO if it exists. */
 
   if (local_fifo_exists(path))
     {
-      /* REVISIT:  This is wrong!  Un-linking the FIFO does not eliminate it;
-       * it only removes it from the namespace.  A new interface will be
-       * required to destroy the FIFO driver instance and all of its resources.
+      /* Un-linking the FIFO removes the FIFO from the namespace.  It will
+       * also mark the FIFO device "unlinked".  When all of the open
+       * references to the FIFO device are closed, the resources consumed
+       * by the device instance will also be freed.
        */
-#warning Missing logic
-#if 0
-      int ret;
 
       ret = unlink(path);
       if (ret < 0)
@@ -208,13 +215,13 @@ static int local_release_fifo(FAR const char *path)
           ndbg("ERROR: Failed to unlink FIFO %s: %d\n", path, errcode);
           return -errcode;
         }
-#endif
     }
 
   /* The FIFO does not exist or we successfully unlinked it. */
 
   return OK;
 }
+#endif
 
 /****************************************************************************
  * Name: local_rx_open
@@ -330,6 +337,7 @@ static int local_set_policy(int fd, unsigned long policy)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_STREAM
 int local_create_fifos(FAR struct local_conn_s *conn)
 {
   char path[LOCAL_FULLPATH_LEN];
@@ -349,6 +357,7 @@ int local_create_fifos(FAR struct local_conn_s *conn)
 
   return ret;
 }
+#endif /* CONFIG_NET_LOCAL_STREAM */
 
 /****************************************************************************
  * Name: local_create_halfduplex
@@ -358,6 +367,7 @@ int local_create_fifos(FAR struct local_conn_s *conn)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_DGRAM
 int local_create_halfduplex(FAR struct local_conn_s *conn, FAR const char *path)
 {
   char fullpath[LOCAL_FULLPATH_LEN];
@@ -367,6 +377,7 @@ int local_create_halfduplex(FAR struct local_conn_s *conn, FAR const char *path)
   local_hd_name(path, fullpath);
   return local_create_fifo(fullpath);
 }
+#endif /* CONFIG_NET_LOCAL_DGRAM */
 
 /****************************************************************************
  * Name: local_release_fifos
@@ -376,6 +387,7 @@ int local_create_halfduplex(FAR struct local_conn_s *conn, FAR const char *path)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_STREAM
 int local_release_fifos(FAR struct local_conn_s *conn)
 {
   char path[LOCAL_FULLPATH_LEN];
@@ -390,12 +402,13 @@ int local_release_fifos(FAR struct local_conn_s *conn)
   /* Destroy the server-to-client FIFO if it exists. */
 
   local_cs_name(conn, path);
-  ret2 = local_create_fifo(path);
+  ret2 = local_release_fifo(path);
 
   /* Return a failure if one occurred. */
 
   return ret1 < 0 ? ret1 : ret2;
 }
+#endif /* CONFIG_NET_LOCAL_STREAM */
 
 /****************************************************************************
  * Name: local_release_halfduplex
@@ -405,15 +418,36 @@ int local_release_fifos(FAR struct local_conn_s *conn)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_DGRAM
 int local_release_halfduplex(FAR struct local_conn_s *conn)
 {
+#if 1
+  /* REVIST: We need to think about this carefully.  Unlike the connection-
+   * oriented Unix domain socket, we don't really know the best time to
+   * release the FIFO resource.  It would be extremely inefficient to create
+   * and destroy the FIFO on each packet. But, on the other hand, failing
+   * to destory the FIFO will leave the FIFO resources in place after the
+   * communications have completed.
+   *
+   * I am thinking that ther should be something like a timer.  The timer
+   * would be started at the completion of each transfer and cancelled at
+   * the beginning of each transfer.  If the timer expires, then the FIFO
+   * would be destroyed.
+   */
+
+#  warning Missing logic
+  return OK;
+
+#else
   char path[LOCAL_FULLPATH_LEN];
 
   /* Destroy the half duplex FIFO if it exists. */
 
   local_hd_name(conn->lc_path, path);
   return local_release_fifo(path);
+#endif
 }
+#endif /* CONFIG_NET_LOCAL_DGRAM */
 
 /****************************************************************************
  * Name: local_open_client_rx
@@ -423,6 +457,7 @@ int local_release_halfduplex(FAR struct local_conn_s *conn)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_STREAM
 int local_open_client_rx(FAR struct local_conn_s *client, bool nonblock)
 {
   char path[LOCAL_FULLPATH_LEN];
@@ -444,6 +479,7 @@ int local_open_client_rx(FAR struct local_conn_s *client, bool nonblock)
 
   return ret;
 }
+#endif /* CONFIG_NET_LOCAL_STREAM */
 
 /****************************************************************************
  * Name: local_open_client_tx
@@ -453,6 +489,7 @@ int local_open_client_rx(FAR struct local_conn_s *client, bool nonblock)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_STREAM
 int local_open_client_tx(FAR struct local_conn_s *client, bool nonblock)
 {
   char path[LOCAL_FULLPATH_LEN];
@@ -474,6 +511,7 @@ int local_open_client_tx(FAR struct local_conn_s *client, bool nonblock)
 
   return ret;
 }
+#endif /* CONFIG_NET_LOCAL_STREAM */
 
 /****************************************************************************
  * Name: local_open_server_rx
@@ -483,6 +521,7 @@ int local_open_client_tx(FAR struct local_conn_s *client, bool nonblock)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_STREAM
 int local_open_server_rx(FAR struct local_conn_s *server, bool nonblock)
 {
   char path[LOCAL_FULLPATH_LEN];
@@ -504,6 +543,7 @@ int local_open_server_rx(FAR struct local_conn_s *server, bool nonblock)
 
   return ret;
 }
+#endif /* CONFIG_NET_LOCAL_STREAM */
 
 /****************************************************************************
  * Name: local_open_server_tx
@@ -513,6 +553,7 @@ int local_open_server_rx(FAR struct local_conn_s *server, bool nonblock)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_STREAM
 int local_open_server_tx(FAR struct local_conn_s *server, bool nonblock)
 {
   char path[LOCAL_FULLPATH_LEN];
@@ -534,6 +575,7 @@ int local_open_server_tx(FAR struct local_conn_s *server, bool nonblock)
 
   return ret;
 }
+#endif /* CONFIG_NET_LOCAL_STREAM */
 
 /****************************************************************************
  * Name: local_open_receiver
@@ -543,6 +585,7 @@ int local_open_server_tx(FAR struct local_conn_s *server, bool nonblock)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_DGRAM
 int local_open_receiver(FAR struct local_conn_s *conn, bool nonblock)
 {
   char path[LOCAL_FULLPATH_LEN];
@@ -564,6 +607,7 @@ int local_open_receiver(FAR struct local_conn_s *conn, bool nonblock)
 
   return ret;
 }
+#endif /* CONFIG_NET_LOCAL_DGRAM */
 
 /****************************************************************************
  * Name: local_open_sender
@@ -573,6 +617,7 @@ int local_open_receiver(FAR struct local_conn_s *conn, bool nonblock)
  *
  ****************************************************************************/
 
+#ifdef CONFIG_NET_LOCAL_DGRAM
 int local_open_sender(FAR struct local_conn_s *conn, FAR const char *path,
                       bool nonblock)
 {
@@ -595,5 +640,6 @@ int local_open_sender(FAR struct local_conn_s *conn, FAR const char *path,
 
   return ret;
 }
+#endif /* CONFIG_NET_LOCAL_DGRAM */
 
 #endif /* CONFIG_NET && CONFIG_NET_LOCAL */
