@@ -38,8 +38,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#if defined(CONFIG_NET) && defined(CONFIG_NET_ICMPv6) && \
-    defined(CONFIG_NET_ICMPv6_PING)
+#ifdef CONFIG_NET_ICMPv6_PING
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -60,7 +59,6 @@
 
 #include "netdev/netdev.h"
 #include "devif/devif.h"
-#include "arp/arp.h"
 #include "utils/utils.h"
 #include "icmpv6/icmpv6.h"
 
@@ -74,11 +72,6 @@
   ((struct icmpv6_echo_request_s *)&dev->d_buf[NET_LL_HDRLEN(dev) + IPv6_HDRLEN])
 #define ICMPv6ECHOREPLY \
   ((struct icmpv6_echo_reply_s *)&dev->d_buf[NET_LL_HDRLEN(dev) + IPv6_HDRLEN])
-
-/* Allocate a new ICMPv6 data callback */
-
-#define icmpv6_callback_alloc()   devif_callback_alloc(&g_icmpv6_echocallback)
-#define icmpv6_callback_free(cb)  devif_callback_free(cb, &g_icmpv6_echocallback)
 
 /****************************************************************************
  * Private Data
@@ -329,9 +322,9 @@ static uint16_t ping_interrupt(FAR struct net_driver_s *dev, FAR void *conn,
           if (!net_ipv6addr_maskcmp(pstate->png_addr, dev->d_ipv6addr,
                                     dev->d_ipv6netmask))
             {
-              /* Destination address was not on the local network served by this
-               * device.  If a timeout occurs, then the most likely reason is
-               * that the destination address is not reachable.
+              /* Destination address was not on the local network served by
+               * this device.  If a timeout occurs, then the most likely
+               * reason is that the destination address is not reachable.
                */
 
               nlldbg("Not reachable\n");
@@ -406,18 +399,18 @@ int icmpv6_ping(net_ipv6addr_t addr, uint16_t id, uint16_t seqno,
   struct icmpv6_ping_s state;
   net_lock_t save;
 
-#ifdef CONFIG_NET_ICMPv6_SEND
+#ifdef CONFIG_NET_ICMPv6_NEIGHBOR
   int ret;
 
   /* Make sure that the IP address mapping is in the Neighbor Table */
 
-  ret = neighbor_send(addr);
+  ret = icmpv6_neighbor(addr);
   if (ret < 0)
     {
       ndbg("ERROR: Not reachable\n");
       return -ENETUNREACH;
     }
-#endif
+#endif /* CONFIG_NET_ICMPv6_NEIGHBOR */
 
   /* Initialize the state structure */
 
@@ -446,7 +439,7 @@ int icmpv6_ping(net_ipv6addr_t addr, uint16_t id, uint16_t seqno,
 
       /* Notify the device driver of the availability of TX data */
 
-#ifdef CONFIG_NET_MULTILINK
+#ifdef CONFIG_NETDEV_MULTINIC
       netdev_ipv6_txnotify(g_ipv6_allzeroaddr, state.png_addr);
 #else
       netdev_ipv6_txnotify(state.png_addr);
@@ -483,4 +476,4 @@ int icmpv6_ping(net_ipv6addr_t addr, uint16_t id, uint16_t seqno,
     }
 }
 
-#endif /* CONFIG_NET_ICMPv6 && CONFIG_NET_ICMPv6_PING  ... */
+#endif /* CONFIG_NET_ICMPv6_PING */

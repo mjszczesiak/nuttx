@@ -1,8 +1,8 @@
 /****************************************************************************
- * net/icmpv6/icmpv6_send.c
+ * drivers/syslog/syslog_console.c
  *
- *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *   Copyright (C) 2015 Pierre-noel Bouteville. All rights reserved.
+ *   Author: Pierre-noel Bouteville <pnb990@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,108 +38,102 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#if defined(CONFIG_NET) && defined(CONFIG_NET_ICMPv6) && defined(CONFIG_NET_ICMPv6_PING)
 
-#include <string.h>
+#include <sys/types.h>
+#include <errno.h>
 #include <debug.h>
 
-#include <arpa/inet.h>
-
-#include <nuttx/net/netconfig.h>
-#include <nuttx/net/netdev.h>
-#include <nuttx/net/netstats.h>
-#include <nuttx/net/ip.h>
-#include <nuttx/net/icmpv6.h>
-
-#include "devif/devif.h"
-#include "utils/utils.h"
-#include "icmpv6/icmpv6.h"
+#include <nuttx/arch.h>
+#include <nuttx/fs/fs.h>
+#include <nuttx/syslog/syslog.h>
 
 /****************************************************************************
- * Pre-processor Definitions
+ * Definitions
  ****************************************************************************/
 
-#define ICMPv6BUF ((struct icmpv6_iphdr_s *)&dev->d_buf[NET_LL_HDRLEN(dev)])
+/* The architecture must provide syslog_putc for this driver */
+
+#if defined(CONFIG_SYSLOG)
 
 /****************************************************************************
- * Public Variables
+ * Private Function Prototypes
  ****************************************************************************/
+
+static ssize_t syslog_console_read(FAR struct file *filep, FAR char *buffer, 
+                                   size_t buflen);
+static ssize_t syslog_console_write(FAR struct file *filep,
+                                    FAR const char *buffer, size_t buflen);
+static int     syslog_console_ioctl(FAR struct file *filep, int cmd, 
+                                    unsigned long arg);
 
 /****************************************************************************
  * Private Variables
  ****************************************************************************/
+
+static const struct file_operations g_consoleops =
+{
+  0,                    /* open */
+  0,                    /* close */
+  syslog_console_read,  /* read */
+  syslog_console_write, /* write */
+  0,                    /* seek */
+  syslog_console_ioctl  /* ioctl */
+#ifndef CONFIG_DISABLE_POLL
+  , 0                   /* poll */
+#endif
+};
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
 
 /****************************************************************************
+ * Name: syslog_console_ioctl
+ ****************************************************************************/
+
+static int syslog_console_ioctl(FAR struct file *filep, int cmd,
+                                unsigned long arg)
+{
+  return -ENOTTY;
+}
+
+/****************************************************************************
+ * Name: syslog_console_read
+ ****************************************************************************/
+
+static ssize_t syslog_console_read(FAR struct file *filep, FAR char *buffer, 
+                                   size_t buflen)
+{
+  return 0;
+}
+
+/****************************************************************************
+ * Name: syslog_console_write
+ ****************************************************************************/
+
+static ssize_t syslog_console_write(FAR struct file *filep,
+                                    FAR const char *buffer, size_t buflen)
+{
+  ssize_t ret = buflen;
+
+  for (; buflen; buflen--)
+    {
+      syslog_putc(*buffer++);
+    }
+
+  return ret;
+}
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: icmpv6_send
- *
- * Description:
- *   Setup to send an ICMPv6 packet
- *
- * Parameters:
- *   dev - The device driver structure to use in the send operation
- *
- * Return:
- *   None
- *
- * Assumptions:
- *   Called from the interrupt level or with interrupts disabled.
- *
- ****************************************************************************/
+ * Name: syslog_console_init
+****************************************************************************/
 
-void icmpv6_send(FAR struct net_driver_s *dev, FAR net_ipv6addr_t *destaddr)
+void syslog_console_init(void)
 {
-  FAR struct icmpv6_iphdr_s *icmp = ICMPv6BUF;
-
-  if (dev->d_sndlen > 0)
-    {
-      /* The total length to send is the size of the application data plus
-       * the IP and ICMPv6 headers (and, eventually, the Ethernet header)
-       */
-
-      dev->d_len = dev->d_sndlen + IPICMPv6_HDRLEN;
-
-      /* The total size of the data (for ICMPv6 checksum calculation) includes
-       * the size of the ICMPv6 header
-       */
-
-      dev->d_sndlen += ICMPv6_HDRLEN;
-
-      /* Initialize the IP header.  Note that for IPv6, the IP length field
-       * does not include the IPv6 IP header length.
-       */
-
-      icmp->vtc         = 0x60;
-      icmp->tcf         = 0x00;
-      icmp->flow        = 0x00;
-      icmp->len[0]      = (dev->d_sndlen >> 8);
-      icmp->len[1]      = (dev->d_sndlen & 0xff);
-      icmp->proto       = IP_PROTO_ICMP6;
-      icmp->ttl         = IP_TTL;
-
-      net_ipv6addr_copy(icmp->srcipaddr, dev->d_ipv6addr);
-      net_ipv6addr_copy(icmp->destipaddr, destaddr);
-
-      /* Calculate the ICMPv6 checksum. */
-
-      icmp->chksum  = 0;
-      icmp->chksum  = ~icmpv6_chksum(dev);
-
-      nllvdbg("Outgoing ICMPv6 packet length: %d (%d)\n",
-              dev->d_len, (icmp->len[0] << 8) | icmp->len[1]);
-
-#ifdef CONFIG_NET_STATISTICS
-      g_netstats.icmpv6.sent++;
-      g_netstats.ipv6.sent++;
-#endif
-    }
+  (void)register_driver("/dev/console", &g_consoleops, 0666, NULL);
 }
-
-#endif /* CONFIG_NET && CONFIG_NET_ICMPv6 && CONFIG_NET_ICMPv6_PING */
+#endif /* CONFIG_SYSLOG */

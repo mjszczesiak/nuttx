@@ -2477,8 +2477,12 @@ static int tiva_ifup(struct net_driver_s *dev)
   ndbg("Bringing up: %d.%d.%d.%d\n",
        dev->d_ipaddr & 0xff, (dev->d_ipaddr >> 8) & 0xff,
        (dev->d_ipaddr >> 16) & 0xff, dev->d_ipaddr >> 24);
-#else
-  ndbg("Bringing the network up\n");
+#endif
+#ifdef CONFIG_NET_IPv6
+  ndbg("Bringing up: %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
+       dev->d_ipv6addr[0], dev->d_ipv6addr[1], dev->d_ipv6addr[2],
+       dev->d_ipv6addr[3], dev->d_ipv6addr[4], dev->d_ipv6addr[5],
+       dev->d_ipv6addr[6], dev->d_ipv6addr[7]);
 #endif
 
   /* Configure the Ethernet interface for DMA operation. */
@@ -3985,6 +3989,25 @@ static void tiva_ipv6multicast(FAR struct tiva_ethmac_s *priv)
         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
   (void)tiva_addmac(dev, mac);
+
+#ifdef CONFIG_NET_ICMPv6_AUTOCONF
+  /* Add the IPv6 all link-local nodes Ethernet address.  This is the
+   * address that we expect to receive ICMPv6 Router Advertisement
+   * packets.
+   */
+
+  (void)tiva_addmac(dev, g_ipv6_ethallnodes.ether_addr_octet);
+
+#endif /* CONFIG_NET_ICMPv6_AUTOCONF */
+#ifdef CONFIG_NET_ICMPv6_ROUTER
+  /* Add the IPv6 all link-local routers Ethernet address.  This is the
+   * address that we expect to receive ICMPv6 Router Solicitation
+   * packets.
+   */
+
+  (void)tiva_addmac(dev, g_ipv6_ethallrouters.ether_addr_octet);
+
+#endif /* CONFIG_NET_ICMPv6_ROUTER */
 }
 #endif /* CONFIG_NET_ICMPv6 */
 

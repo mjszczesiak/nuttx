@@ -222,7 +222,7 @@ int arp_send(in_addr_t ipaddr)
 
   /* Get the device that can route this request */
 
-#ifdef CONFIG_NET_MULTILINK
+#ifdef CONFIG_NETDEV_MULTINIC
   dev = netdev_findby_ipv4addr(g_ipv4_allzeroaddr, ipaddr);
 #else
   dev = netdev_findby_ipv4addr(ipaddr);
@@ -238,7 +238,7 @@ int arp_send(in_addr_t ipaddr)
   /* ARP support is only built if the Ethernet data link is supported.
    * However, if we are supporting multiple network devices and using
    * different link level protocols then we can get here for other
-   * link protocals as well.  Continue and send the ARP request only
+   * link protocols as well.  Continue and send the ARP request only
    * if this device uses the Ethernet data link protocol.
    */
 
@@ -332,7 +332,7 @@ int arp_send(in_addr_t ipaddr)
       /* Arm/re-arm the callback */
 
       state.snd_sent      = false;
-      state.snd_cb->flags = PKT_POLL;
+      state.snd_cb->flags = ARP_POLL;
       state.snd_cb->priv  = (FAR void *)&state;
       state.snd_cb->event = arp_send_interrupt;
 
@@ -358,6 +358,7 @@ int arp_send(in_addr_t ipaddr)
 
       /* Now wait for response to the ARP response to be received.  The
        * optimal delay would be the work case round trip time.
+       * NOTE: The network is locked.
        */
 
       delay.tv_sec  = CONFIG_ARP_SEND_DELAYSEC;

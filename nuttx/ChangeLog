@@ -9622,3 +9622,113 @@
 	  closed.  Add new parameters to romdisk() to specify what should be
 	  done with the RAM/ROM buffer -- Should it be freed or not?  Changed
 	  all calls to ramdisk() to use these new parameters (2015-02-01).
+	* net/icmpv6/icmpv6_neighbor.c, icmpv6_notify.c (and other files): Adds
+	  basic logic to support verification that we have the IPv6 address in
+	  the Neighbor Table.  This feature is important because otherwise the
+	  first packet sent to a remote peer will fail (it will be replaced
+	  with a Neighbor Solicitation) (2015-01-02).
+	* net/arp/arp.h, arp_notify.c, and arp_send.c: Fixes another
+	  CONFIG_NET_NOINTS issues.  When called sem_timedwait() with the
+	  network locked, the network stays logcked while we wait which is not
+	  what we want (without CONFIG_NET_NOINTS, interrupts are re-enabled
+	  while we wait and all is well) (2015-02-02).
+	* net/icmpv6/icmpv6.h, icmpv6_neighbor.c, icmpv6_notify.c: Apply the
+	  same fix as for ARP to the Neighbor Solicitation logic (2015-02-02).
+	* sched/sched/sched_timerexpiration.c, Kconfig, and include/nuttx/arch.h:
+	  On my platform I have just 16-bit timer clocked at 32kHz. As result
+	  oneshot timer max delay is 2s. The patch adds limit of maximum ticks
+	  in sched_timer_start(). From Macs N (2015-02-03).
+	* arch/arm/src/sam34:  Add support for Tickless mode of operation for
+	  the SAM4CM platform.  From Macs N (2015-02-03).
+	* include/nuttx/net/icmpv6.h and net/icmpv6/Kconfig: Add support for
+	  sending ICMPv6 Router Solicitation and receiving Router advertisement.
+	  This is a part of the ICMPv6 auto-configuration logic is still not
+	  complete (2015-02-03).
+	* libnx/nxfonts/nxfonts_getfont.c and nxfonts_sans39x48.h: Fixes a
+	  problem with one of the font files.  From Pierre-noel Bouteville
+	 (2015-02-03).
+	* arch/arm/src/efm32/efm32_rtc_burtc.c:  Remove a misbehaving assertion.
+	  From Pierre-noel Bouteville (2015-02-03).
+	* net/icmpv6:  Implemented the ICMPv6 Autonomous Auto-Configuration
+	  logic.  This is an IPv6 alternative to DHCP.  It obtains the IPv6
+	  addresses and masks using ICMPv6 Router Solicitation and
+	  Advertisement messages (2015-02-03).
+	* arch/arm/src/stm32/stm32_aes.c, stm32_aes.h, and
+	  chip/stm32l15xxx_aes.h:  Add driver for STM32L162XX AES peripheral.
+	  From Juha Niskanen (2015-02-04).
+	* net/icmpv6/icmpv6_radvertise.c, Kconfig, and other files: Add option
+	  to send Router Advertisement Messages (2015-02-05).
+	* net/icmpv6/icmpv6_input.c, arch/arm/src/tiva/tm4c_ethernet.c, and
+	  stm32/stm32_eth.c: Add logic to behave like a router (if so
+	  configured):  NuttX will not send the router advertisement message
+	  in response to any router solicitation messages (2015-02-05).
+	* configs/stm32f4discovery/ipv6 and arch/arm/src/stm32/stm32_eth.c: Add
+	  an IPv6 configuration for the STM32F4-Discovery board (with the
+	  STM32-DISCO_BB base board).  Verify that the STM32 Ethernet driver
+	  works with IPv6 (2015-02-05).
+	* net/icmpv6/icmpv6_input.c and icmpv6_rnotify.c:  With these two
+	  changes both ICMPv6 autonomous autoconfiguration and router
+	  functionality appear to be working with no problems (2015-02-05).
+	* arch/arm/src/tiva and configs/tm4c123g-launchpad:  Adds support for
+	  TM4C123G timers; integrates with the TM4C123G Launchpad.  From Calvin
+	  Maguranis (2015-02-05).
+	* arc/arc/src/tiva/tiva_adc.c and .h: Adds a Tiva ADC driver.  From
+	  Calvin Maguranis (2015-02-05).
+	* tmv4c123g-launchpad:  Add Tiva ADC support to the TM4C123G-Launchpad.
+	  From Calvin Maguranis (2015-02-05).
+	* arch/arm/src/stm32/stm32_spi.c: The source clock for SPI 4,5, and 6
+	  should be PCLK2, not PCLK1 (for F411, F427, and F429).  Per David
+	  Sidrane (2015-02-07).
+	* drivers/syslog/syslog_console.c, include/nuttx/syslog/syslog_console.h,
+	  and the console device initialization logic for all architectures: Add
+	  an option to use the syslog'ing device as the system consolution.  This
+	  option enables a low-level, write-only console device at /dev/console
+	  (similar to the low-level UART console device).  From Pierre-noel
+	  Bouteville (2015-02-08).
+	* net/utils:  Clean up and consolidate some clunky stuff in ARP and
+	  ICMPv6 time waiting logic by adding new net_timedwait() function
+	  (2015-4-09).
+	* arch/arm/src/stm32/stm32_eth.c: Add logic so that STM32 Ethernet
+	  driver can avoid interrupt level processing and, instead, execute on
+	  the work thread (2015-4-09).
+	* configs/stm32f4discovery/netnsh and ipv6: Convert all STM32F4-
+	  Discovery configurations (with base board) to configure the Ethernet
+	  driver to use the work queue (vs. interrupt level processing)
+	  (2015-4-09).
+	* libc/unisted/lib_execl.c:   Fix bad logic in counting the number of
+	  arguments.  This could never have worked.  Noted by Pierre-noel
+	  Bouteville (2015-4-09).
+	* arch/arm/src/sama5/sam_emacb.c: Add support for Multicast address
+	  matching and IPv6 in the SAMA5D4 Ethernet driver (2015-02-09).
+	* configs/sama5d4-ek/ipv6: Add a configuration for testing IPv6 with
+	  the SAMA5D4-EK (2015-02-09).
+	* arch/arm/src/armv7-a/arm_doirq.c: ARMv7-A interrupt handler should not
+	  automatically re-enable interrupts on interrupt return.  That
+	  interferes with the driver's ability to manage interrupts (2015-02-09).
+	* arch/arm/src/sama5/sam_emacb.c: Add support for CONFIG_NET_NOTINTS in
+	  the SAMA5D4 Ethernet driver so that the driver can operate from the
+	  work queue thread instead of doing everything from the interrupt level
+	  (2015-02-09).
+	* SAMA5D4-EK: CONFIG_NET_NOINTS is now enabled in the nsh and ipv6
+	  configurations (2015-02-09).
+	* arch/arm/src/a1x, arm, c5471, common, dm320, imx, lpc2378, lpc31xx,
+	  sama5, str71x, hc/src.common, sh/src/common, x86/src/common,
+	  z16/src/common, z16f, z80/src/z8: Big, very risky change:  Remove all
+	  occurrences of up_maskack_irq() that disable and enable interrupts
+	  with up_ack_irq() that only acknowledges the interrupts.  This is only
+	  used in interrupt decoding logic.  Also remove the logic that
+	  unconditionally re-enables interrupts with the interrupt exits.  This
+	  interferes with the drivers ability to control the interrupt state.
+	  This is a necessary, sweeping, global change and unfortunately 
+	  to test (2015-02-09).
+	* mtd/ramtron.c:  Table of parts is not terminated properly if
+	  CONFIG_RAMTRON_FRAM_NON_JEDEC is not defined.  Noted by David
+	  Sidrane (2015-02-09).
+	* arch/arm/src/sam34/sam_emac.c, sama5/sam_emaca.c, and sama5/sam_gmac.c:
+	  Clone the SAMA5D4 IPv6 support to the SAM4E EMAC and SAMAd3 EMAC and
+	  GMAC drivers  (2015-02-09).
+	* net/:  Lots of build problems introduced into multiple NIC support.
+	  Many places where conditional logic based on CONFIG_NETDEV_MULTINIC is
+	  confused with CONFIG_NET_MULTILINK.  Lots of code changed with IPv6
+	  that was never compiled with MULTINIC enabled.  Still some problem
+	  with parameter passing in the MULTINIC configuration(2015-02-09).

@@ -60,7 +60,7 @@
  * Private Data
  ****************************************************************************/
 
-#ifdef CONFIG_EXAMPLES_NETTEST_IPv6
+#if defined(CONFIG_EXAMPLES_NETTEST_IPv6) && !defined(CONFIG_NET_ICMPv6_AUTOCONF)
 /* Our host IPv6 address */
 
 static const uint16_t g_ipv6_hostaddr[8] =
@@ -102,7 +102,7 @@ static const uint16_t g_ipv6_netmask[8] =
   HTONS(CONFIG_EXAMPLES_NETTEST_IPv6NETMASK_7),
   HTONS(CONFIG_EXAMPLES_NETTEST_IPv6NETMASK_8),
 };
-#endif /* CONFIG_EXAMPLES_NETTEST_IPv6 */
+#endif /* CONFIG_EXAMPLES_NETTEST_IPv6 && !CONFIG_NET_ICMPv6_AUTOCONF */
 
 /****************************************************************************
  * Public Functions
@@ -138,7 +138,14 @@ int nettest_main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_EXAMPLES_NETTEST_IPv6
-  /* Set up our host address */
+#ifdef CONFIG_NET_ICMPv6_AUTOCONF
+  /* Perform ICMPv6 auto-configuration */
+
+  netlib_icmpv6_autoconfiguration("eth0");
+
+#else /* CONFIG_NET_ICMPv6_AUTOCONF */
+
+  /* Set up our fixed host address */
 
   netlib_set_ipv6addr("eth0",
                       (FAR const struct in6_addr *)g_ipv6_hostaddr);
@@ -152,7 +159,10 @@ int nettest_main(int argc, char *argv[])
 
   netlib_set_ipv6netmask("eth0",
                         (FAR const struct in6_addr *)g_ipv6_netmask);
-#else
+
+#endif /* CONFIG_NET_ICMPv6_AUTOCONF */
+#else /* CONFIG_EXAMPLES_NETTEST_IPv6 */
+
   /* Set up our host address */
 
   addr.s_addr = HTONL(CONFIG_EXAMPLES_NETTEST_IPADDR);
@@ -167,7 +177,8 @@ int nettest_main(int argc, char *argv[])
 
   addr.s_addr = HTONL(CONFIG_EXAMPLES_NETTEST_NETMASK);
   netlib_set_ipv4netmask("eth0", &addr);
-#endif
+
+#endif /* CONFIG_EXAMPLES_NETTEST_IPv6 */
 
 #ifdef CONFIG_EXAMPLES_NETTEST_SERVER
   recv_server();

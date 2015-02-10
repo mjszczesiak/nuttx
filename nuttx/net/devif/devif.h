@@ -70,6 +70,7 @@
  *   UDP_NEWDATA    OUT: Cleared (only) by the socket layer logic to indicate
  *   PKT_NEWDATA         that the new data was consumed, suppressing further
  *   ICMP_NEWDATA        attempts to process the new data.
+ *   ICMPv6_NEWDATA
  *
  *   TCP_SNDACK      IN: Not used; always zero
  *                  OUT: Set by the socket layer if the new data was consumed
@@ -79,11 +80,12 @@
  *                       was last sent. (TCP only)
  *                  OUT: Not used
  *
- *   TCP_POLL       IN:  Used for polling the socket layer.  This is provided
- *   UDP_POLL            periodically from the drivers to support (1) timed
- *   PKT_POLL            operations, and (2) to check if the socket layer has
- *   ICMP_POLL           data that it wants to send
- *   ICMPv6_POLL    OUT: Not used
+ *   ARP_POLL       IN:  Used for polling the socket layer.  This is provided
+ *   TCP_POLL            periodically from the drivers to support (1) timed
+ *   UDP_POLL            operations, and (2) to check if the socket layer has
+ *   PKT_POLL            data that it wants to send
+ *   ICMP_POLL      OUT: Not used
+ *   ICMPv6_POLL
  *
  *   TCP_BACKLOG     IN: There is a new connection in the backlog list set
  *                       up by the listen() command. (TCP only)
@@ -123,11 +125,12 @@
 #define ICMPv6_NEWDATA   TCP_NEWDATA
 #define TCP_SNDACK       (1 << 2)
 #define TCP_REXMIT       (1 << 3)
-#define TCP_POLL         (1 << 4)
-#define UDP_POLL         TCP_POLL
-#define PKT_POLL         TCP_POLL
-#define ICMP_POLL        TCP_POLL
-#define ICMPv6_POLL      TCP_POLL
+#define ARP_POLL         (1 << 4)
+#define TCP_POLL         ARP_POLL
+#define UDP_POLL         ARP_POLL
+#define PKT_POLL         ARP_POLL
+#define ICMP_POLL        ARP_POLL
+#define ICMPv6_POLL      ARP_POLL
 #define TCP_BACKLOG      (1 << 5)
 #define TCP_CLOSE        (1 << 6)
 #define TCP_ABORT        (1 << 7)
@@ -181,18 +184,6 @@ struct devif_callback_s
 /****************************************************************************
  * Public Data
  ****************************************************************************/
-/* Well-known addresses */
-
-#ifdef CONFIG_NET_IPv4
-extern const in_addr_t g_ipv4_alloneaddr;
-extern const in_addr_t g_ipv4_allzeroaddr;
-#endif
-
-#ifdef CONFIG_NET_IPv6
-extern const net_ipv6addr_t g_ipv6_alloneaddr;
-extern const net_ipv6addr_t g_ipv6_allzeroaddr;
-#endif
-
 /* Increasing number used for the IP ID field. */
 
 extern uint16_t g_ipid;
@@ -207,12 +198,6 @@ extern uint8_t g_reassembly_timer;
 /* List of applications waiting for ICMP ECHO REPLY */
 
 extern struct devif_callback_s *g_icmp_echocallback;
-#endif
-
-#if defined(CONFIG_NET_ICMPv6) && defined(CONFIG_NET_ICMPv6_PING)
-/* List of applications waiting for ICMPv6 ECHO REPLY */
-
-extern struct devif_callback_s *g_icmpv6_echocallback;
 #endif
 
 /****************************************************************************
