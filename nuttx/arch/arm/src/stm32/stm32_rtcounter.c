@@ -6,7 +6,7 @@
  *
  * With extensions, modifications by:
  *
- *   Copyright (C) 2011-2013 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2013, 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregroy Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -164,7 +164,7 @@ static alarmcb_t g_alarmcb;
  * Public Data
  ************************************************************************************/
 
-/* Variable determines the state of the LSE oscilator.
+/* Variable determines the state of the LSE oscillator.
  * Possible errors:
  *   - on start-up
  *   - during operation, reported by LSE interrupt
@@ -247,7 +247,7 @@ static inline void stm32_rtc_wait4rsf(void)
 }
 
 /************************************************************************************
- * Name: up_rtc_breakout
+ * Name: stm32_rtc_breakout
  *
  * Description:
  *   Set the RTC to the provided time.
@@ -261,8 +261,8 @@ static inline void stm32_rtc_wait4rsf(void)
  ************************************************************************************/
 
 #ifdef CONFIG_RTC_HIRES
-static void up_rtc_breakout(FAR const struct timespec *tp,
-                            FAR struct rtc_regvals_s *regvals)
+static void stm32_rtc_breakout(FAR const struct timespec *tp,
+                               FAR struct rtc_regvals_s *regvals)
 {
   uint64_t frac;
   uint32_t cnt;
@@ -281,8 +281,8 @@ static void up_rtc_breakout(FAR const struct timespec *tp,
   regvals->ovf  = ovf;
 }
 #else
-static inline void up_rtc_breakout(FAR const struct timespec *tp,
-                                   FAR struct rtc_regvals_s *regvals)
+static inline void stm32_rtc_breakout(FAR const struct timespec *tp,
+                                      FAR struct rtc_regvals_s *regvals)
 {
   /* The low-res timer is easy... tv_sec holds exactly the value needed by the
    * CNTH/CNTL registers.
@@ -358,12 +358,17 @@ static int stm32_rtc_interrupt(int irq, void *context)
 
 int up_rtcinitialize(void)
 {
-  /* Set access to the peripheral, enable the backup domain (BKP) and the lower power
-   * extern 32,768Hz (Low-Speed External, LSE) oscillator.  Configure the LSE to
-   * drive the RTC.
+  /* Enable write access to the backup domain (RTC registers, RTC backup data
+   * registers and backup SRAM).
    */
 
-  stm32_pwr_enablebkp();
+  stm32_pwr_enablebkp(true);
+
+  /* Set access to the peripheral, enable the backup domain (BKP) and the lower
+   * power external 32,768Hz (Low-Speed External, LSE) oscillator.  Configure the
+   * LSE to drive the RTC.
+   */
+
   stm32_rcc_enablelse();
 
   /* TODO: Get state from this function, if everything is
@@ -397,11 +402,18 @@ int up_rtcinitialize(void)
     {
       up_waste();
     }
+
   modifyreg16(STM32_RTC_CRH, 0, RTC_CRH_OWIE);
 
   /* Alarm Int via EXTI Line */
 
   /* STM32_IRQ_RTCALRM  41: RTC alarm through EXTI line interrupt */
+
+  /* Disable write access to the backup domain (RTC registers, RTC backup data
+   * registers and backup SRAM).
+   */
+
+  stm32_pwr_enablebkp(false);
 
   return OK;
 }
@@ -434,7 +446,7 @@ time_t up_rtc_time(void)
 
   /* The RTC counter is read from two 16-bit registers to form one 32-bit
    * value.  Because these are non-atomic operations, many things can happen
-   * between the two reads:  This thread could get suspended or interrrupted
+   * between the two reads:  This thread could get suspended or interrupted
    * or the lower 16-bit counter could rollover between reads.  Disabling
    * interrupts will prevent suspensions and interruptions:
    */
@@ -502,7 +514,7 @@ int up_rtc_gettime(FAR struct timespec *tp)
 
   /* The RTC counter is read from two 16-bit registers to form one 32-bit
    * value.  Because these are non-atomic operations, many things can happen
-   * between the two reads:  This thread could get suspended or interrrupted
+   * between the two reads:  This thread could get suspended or interrupted
    * or the lower 16-bit counter could rollover between reads.  Disabling
    * interrupts will prevent suspensions and interruptions:
    */
@@ -572,7 +584,7 @@ int up_rtc_settime(FAR const struct timespec *tp)
 
   /* Break out the time values */
 
-  up_rtc_breakout(tp, &regvals);
+  stm32_rtc_breakout(tp, &regvals);
 
   /* Then write the broken out values to the RTC counter and BKP overflow register
    * (hi-res mode only)
@@ -592,7 +604,7 @@ int up_rtc_settime(FAR const struct timespec *tp)
 }
 
 /************************************************************************************
- * Name: up_rtc_setalarm
+ * Name: stm32_rtc_setalarm
  *
  * Description:
  *   Set up an alarm.
@@ -607,7 +619,7 @@ int up_rtc_settime(FAR const struct timespec *tp)
  ************************************************************************************/
 
 #ifdef CONFIG_RTC_ALARM
-int up_rtc_setalarm(FAR const struct timespec *tp, alarmcb_t callback)
+int stm32_rtc_setalarm(FAR const struct timespec *tp, alarmcb_t callback)
 {
   struct rtc_regvals_s regvals;
   irqstate_t flags;
@@ -624,7 +636,7 @@ int up_rtc_setalarm(FAR const struct timespec *tp, alarmcb_t callback)
 
       /* Break out the time values */
 
-      up_rtc_breakout(tp, &regvals);
+      stm32_rtc_breakout(tp, &regvals);
 
       /* Enable RTC alarm */
 
@@ -643,12 +655,13 @@ int up_rtc_setalarm(FAR const struct timespec *tp, alarmcb_t callback)
 
       ret = OK;
     }
+
   return ret;
 }
 #endif
 
 /************************************************************************************
- * Name: up_rtc_cancelalarm
+ * Name: stm32_rtc_cancelalarm
  *
  * Description:
  *   Cancel a pending alarm alarm
@@ -662,7 +675,7 @@ int up_rtc_setalarm(FAR const struct timespec *tp, alarmcb_t callback)
  ************************************************************************************/
 
 #ifdef CONFIG_RTC_ALARM
-int up_rtc_cancelalarm(void)
+int stm32_rtc_cancelalarm(void)
 {
   irqstate_t flags;
   int ret = -ENODATA;
@@ -684,6 +697,7 @@ int up_rtc_cancelalarm(void)
 
       ret = OK;
     }
+
   return ret;
 }
 #endif

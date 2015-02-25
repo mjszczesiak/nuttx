@@ -132,14 +132,39 @@ static uint16_t udp_datahandler(FAR struct net_driver_s *dev, FAR struct udp_con
       FAR struct udp_hdr_s *udp   = UDPIPv4BUF;
       FAR struct ipv4_hdr_s *ipv4 = IPv4BUF;
 
-      src_addr4.sin_family = AF_INET;
-      src_addr4.sin_port   = udp->srcport;
+#ifdef CONFIG_NET_IPv6
+      /* Hybrid dual-stack IPv6/IPv4 implementations recognize a special
+       * class of addresses, the IPv4-mapped IPv6 addresses.
+       */
 
-      net_ipv4addr_copy(src_addr4.sin_addr.s_addr,
+      if (conn->domain == PF_INET6)
+        {
+          in_addr_t ipv4addr;
+
+          /* Encode the IPv4 address as an IPv-mapped IPv6 address */
+
+          src_addr6.sin6_family = AF_INET6;
+          src_addr6.sin6_port = udp->srcport;
+
+          ipv4addr = net_ip4addr_conv32(ipv4->srcipaddr);
+          ip6_map_ipv4addr(ipv4addr,
+                           (net_ipv6addr_t)src_addr6.sin6_addr.s6_addr16);
+
+          src_addr_size = sizeof(src_addr6);
+          src_addr = &src_addr6;
+        }
+      else
+#endif
+        {
+          src_addr4.sin_family = AF_INET;
+          src_addr4.sin_port   = udp->srcport;
+
+          net_ipv4addr_copy(src_addr4.sin_addr.s_addr,
                             net_ip4addr_conv32(ipv4->srcipaddr));
 
-      src_addr_size = sizeof(src_addr4);
-      src_addr = &src_addr4;
+          src_addr_size = sizeof(src_addr4);
+          src_addr = &src_addr4;
+        }
     }
 #endif /* CONFIG_NET_IPv4 */
 

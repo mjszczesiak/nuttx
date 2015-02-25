@@ -248,6 +248,14 @@ configs/fire-stm32v2
   STM32F103VET6 chip.  See http://firestm32.taobao.com .  Version 2 and 3 of
   the boards are supported but only version 2 has been tested.
 
+configs/freedom-kl25z
+configs/freedom-kl26z
+  These configurations are for the Freescale Freedom KL25Z and very similar
+  KL26Z board.  The Freedom-KL25Z features the K25Z120LE3AN chip; the
+  Freedom-KL26Z has the K26Z128VLH4 chip.  These are separate configurations
+  because of minor differences in the on-board logic.  Both include a
+  built-in SDA debugger.
+
 configs/hymini-stm32v
   A configuration for the HY-Mini STM32v board.  This board is based on the
   STM32F103VCT chip.
@@ -444,7 +452,7 @@ configs/p112
   Dave Brooks was successfully funded through Kickstarter for and another
   run of P112 boards in November of 2012.
 
-configs/pic32-starterkit
+configs/pic32mx-starterkit
   This directory contains the port of NuttX to the Microchip PIC32 Ethernet
   Starter Kit (DM320004) with the Multimedia Expansion Board (MEB, DM320005).
   See www.microchip.com for further information.
@@ -455,6 +463,18 @@ configs/pic32mx7mmb
   http://www.mikroe.com/ for further information.
 
 configs/pirelli_dpl10
+configs/pic32mz-starterkit
+  This directory contains the port of NuttX to the Microchip PIC32MZ
+  Embedded Connectivity (EC) Starter Kit.  There are two configurations of
+  the starter kit:
+
+    1) The PIC32MZ Embedded Connectivity Starter Kit based on the
+       PIC32MZ2048ECH144-I/PH chip (DM320006), and
+    2) The PIC32MZ Embedded Connectivity Starter Kit based on the
+       PIC32MZ2048ECM144-I/PH w/Crypto Engine (DM320006-C)
+
+  See www.microchip.com for further information.
+
   This directory contains the board support for Pirelli "Discus" DP-L10 phones.
   It is a variant of the compal_e88 config with the small changes for the
   differences in the board.
@@ -577,6 +597,12 @@ configs/teensy
 
 configs/tm4c123g-launchpad
   This is the port of NuttX to the Tiva® TM4C123G LaunchPad.  The
+  Tiva® TM4C123G LaunchPad Evaluation Board is a low-cost evaluation
+  platform for ARM® Cortex™-M4F-based microcontrollers from Texas
+  Instruments.
+
+configs/tm4c1294-launchpad
+  This is the port of NuttX to the Tiva® TM4C1294 LaunchPad.  The
   Tiva® TM4C123G LaunchPad Evaluation Board is a low-cost evaluation
   platform for ARM® Cortex™-M4F-based microcontrollers from Texas
   Instruments.
