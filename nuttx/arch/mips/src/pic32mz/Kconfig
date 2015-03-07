@@ -14,13 +14,13 @@ config ARCH_CHIP_PIC32MZ2048ECH
 	bool "PIC32MZ2048ECH"
 	select ARCH_CHIP_PIC32MZEC
 	---help---
-		Microchip PIC32MZ2048ECH (MIPS32)
+		Microchip PIC32MZ2048ECH (MIPS32 M14K)
 
 config ARCH_CHIP_PIC32MZ2048ECM
-	bool "PIC32MZ2048ECH"
+	bool "PIC32MZ2048ECM"
 	select ARCH_CHIP_PIC32MZEC
 	---help---
-		Microchip PIC32MZ2048ECH (MIPS32)
+		Microchip PIC32MZ2048ECM with Crypto Engine (MIPS32 M14K)
 
 endchoice
 
@@ -30,6 +30,10 @@ config ARCH_CHIP_PIC32MZEC
 	select ARCH_MIPS_M14K
 
 config PIC32MZ_MVEC
+	bool
+	default n
+
+config PIC32MZ_SPI
 	bool
 	default n
 
@@ -138,18 +142,32 @@ config PIC32MZ_I2C5
 config PIC32MZ_SPI1
 	bool "SPI1"
 	default n
+	select PIC32MZ_SPI
 
 config PIC32MZ_SPI2
 	bool "SPI2"
 	default n
+	select PIC32MZ_SPI
 
 config PIC32MZ_SPI3
 	bool "SPI3"
 	default n
+	select PIC32MZ_SPI
 
 config PIC32MZ_SPI4
 	bool "SPI4"
 	default n
+	select PIC32MZ_SPI
+
+config PIC32MZ_SPI5
+	bool "SPI5"
+	default n
+	select PIC32MZ_SPI
+
+config PIC32MZ_SPI6
+	bool "SPI6"
+	default n
+	select PIC32MZ_SPI
 
 config PIC32MZ_UART1
 	bool "UART1"
@@ -246,14 +264,80 @@ config PIC32MZ_CTMU
 	bool "Charge Time Measurement Unit (CMTU)"
 	default n
 
-endmenu
+endmenu # PIC32MX Peripheral Support
 
-config PIC32MZ_GPIOIRQ
-	bool "GPIO Interrupt"
+menuconfig PIC32MZ_GPIOIRQ
+	bool "GPIO Interrupt Support"
 	default n
-	depends on EXPERIMENTAL
 	---help---
 		Build in support for interrupts based on GPIO inputs from IOPorts
+
+if PIC32MZ_GPIOIRQ
+
+config PIC32MZ_GPIOIRQ_PORTA
+	bool "I/O PORTA Interrupt Support"
+	default n
+
+config PIC32MZ_GPIOIRQ_PORTB
+	bool "I/O PORTB Interrupt Support"
+	default n
+
+config PIC32MZ_GPIOIRQ_PORTC
+	bool "I/O PORTC Interrupt Support"
+	default n
+
+config PIC32MZ_GPIOIRQ_PORTD
+	bool "I/O PORTD Interrupt Support"
+	default n
+
+config PIC32MZ_GPIOIRQ_PORTE
+	bool "I/O PORTE Interrupt Support"
+	default n
+
+config PIC32MZ_GPIOIRQ_PORTF
+	bool "I/O PORTF Interrupt Support"
+	default n
+
+config PIC32MZ_GPIOIRQ_PORTG
+	bool "I/O PORTG Interrupt Support"
+	default n
+
+config PIC32MZ_GPIOIRQ_PORTH
+	bool "I/O PORTH Interrupt Support"
+	default n
+
+config PIC32MZ_GPIOIRQ_PORTJ
+	bool "I/O PORTJ Interrupt Support"
+	default n
+
+config PIC32MZ_GPIOIRQ_PORTK
+	bool "I/O PORTK Interrupt Support"
+	default n
+
+endif # PIC32MZ_GPIOIRQ
+
+menu "SPI Driver Configuration"
+	depends on PIC32MZ_SPI
+
+config PIC32MZ_SPI_INTERRUPTS
+	bool "SPI Interrupt Driven"
+	default n
+	depends on EXPERIMENTAL
+
+config PIC32MZ_SPI_ENHBUF
+	bool "SPI Enhanced Buffer Mode"
+	default n
+	depends on EXPERIMENTAL
+
+config PIC32MZ_SPI_REGDEBUG
+	bool "SPI Register level debug"
+	depends on DEBUG
+	default n
+	---help---
+		Output detailed register-level SPI device debug information.
+		Requires also DEBUG.
+
+endmenu # SPI Driver Configuration
 
 config PIC32MZ_T1_SOSC
 	bool
@@ -334,19 +418,20 @@ config NET_MULTICAST
 		Enable receipt of multicast (and unicast) frames. Automatically set if
 		NET_IGMP is selected.
 
-endmenu
+endmenu # PIC32MZ PHY/Ethernet device driver settings
 
 menu "Device Configuration 0 (DEVCFG0)"
 
 config PIC32MZ_DEBUGGER_ENABLE
 	bool "Background debugger enable"
-	default n
+	default y if DEBUG
+	default n if !DEBUG
 	---help---
 		Background Debugger Enable
 
 config PIC32MZ_JTAG_ENABLE
 	bool "JTAG enable"
-	default y
+	default n
 	---help---
 		JTAG Enable
 
@@ -358,26 +443,45 @@ config PIC32MZ_ICESEL_CH2
 
 config PIC32MZ_TRACE_ENABLE
 	bool "Trace enable"
-	default n
+	default y if DEBUG
+	default n if !DEBUG
 	---help---
 		Trace Enable
 
-endmenu
+config PIC32MZ_ECC_OPTION
+	int "PIC32 ECC control"
+	default 3
+	range 0 3
+	---help---
+		0: Flash ECC enabled (locked)
+		1: Dynamic Flash ECC enabled (locked) */
+		2: ECC / dynamic ECC disabled (locked) */
+		3: ECC / dynamic ECC disabled (writable) */
+
+endmenu # Device configuration 0 (DEVCFG0)
 
 menu "Device Configuration 1 (DEVCFG1)"
 
-config CONFIG_PIC32MZ_OSCIOFNC
+config PIC32MZ_OSCIOFNC
 	int "CLKO Enable"
-	default 0
+	default 1
 	range 0 1
+	---help---
+		Enable CLK0 output on power up.  Options:
+
+		1: CLKO output disabled
+		0: CLKO output signal active on the OSC2 pin
 
 config PIC32MZ_WDTENABLE
 	bool "Watchdog enable"
 	default 0
 	---help---
-		Enabled watchdog on power up.  Default 0 (watchdog can be enabled later by software).
+		Enabled watchdog on power up.
 
-endmenu
+		1: Watchdog enabled, cannot be disabled
+		0:  Watchdog disabled, can be enabled
+
+endmenu # Device Configuration 2 (DEVCFG2)
 
 menu "Device Configuration 3 (DEVCFG3)"
 
@@ -424,7 +528,8 @@ config PIC32MZ_FETHIO
 
 config PIC32MZ_FUSBIDIO
 	int "USB USBID selection"
-	default 1
+	default 0 if !PIC32MZ_ETHERNET
+	default 1 if PIC32MZ_ETHERNET
 	range 0 1
 	---help---
 		USB USBID selection
@@ -432,5 +537,5 @@ config PIC32MZ_FUSBIDIO
 		0 = USBID pin is controlled by the port function
 		1 = USBID pin is controlled by the USB module
 
-endmenu
+endmenu # Device Configuration 3 (DEVCFG3)
 endif

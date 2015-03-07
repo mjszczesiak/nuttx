@@ -1,7 +1,7 @@
 /****************************************************************************
  * common/up_internal.h
  *
- *   Copyright (C) 2007-2014 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -119,7 +119,7 @@
  */
 
 #if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
-    defined(CONFIG_ARCH_CORTEXM4)
+    defined(CONFIG_ARCH_CORTEXM4) || defined(CONFIG_ARCH_CORTEXM7)
 
   /* If the floating point unit is present and enabled, then save the
    * floating point registers as well as normal ARM registers.  This only
@@ -317,7 +317,7 @@ void up_pminitialize(void);
 #endif
 
 #if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
-    defined(CONFIG_ARCH_CORTEXM4)
+    defined(CONFIG_ARCH_CORTEXM4) || defined(CONFIG_ARCH_CORTEXM7)
 void up_systemreset(void) noreturn_function;
 #endif
 
@@ -328,7 +328,7 @@ void up_irqinitialize(void);
 /* Exception handling logic unique to the Cortex-M family */
 
 #if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
-    defined(CONFIG_ARCH_CORTEXM4)
+    defined(CONFIG_ARCH_CORTEXM4) || defined(CONFIG_ARCH_CORTEXM7)
 
 /* Interrupt acknowledge and dispatch */
 
@@ -340,11 +340,12 @@ uint32_t *up_doirq(int irq, uint32_t *regs);
 int  up_svcall(int irq, FAR void *context);
 int  up_hardfault(int irq, FAR void *context);
 
-#  if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4)
+#  if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4) || \
+      defined(CONFIG_ARCH_CORTEXM7)
 
 int  up_memfault(int irq, FAR void *context);
 
-#  endif /* CONFIG_ARCH_CORTEXM3 || CONFIG_ARCH_CORTEXM4 */
+#  endif /* CONFIG_ARCH_CORTEXM3,4,7 */
 
 /* Exception handling logic unique to the Cortex-A family (but should be
  * back-ported to the ARM7 and ARM9 families).
@@ -398,7 +399,7 @@ void up_prefetchabort(uint32_t *regs);
 void up_syscall(uint32_t *regs);
 void up_undefinedinsn(uint32_t *regs);
 
-#endif /* CONFIG_ARCH_CORTEXM0 || CONFIG_ARCH_CORTEXM3 || CONFIG_ARCH_CORTEXM4 */
+#endif /* CONFIG_ARCH_CORTEXM0,3,4,7 */
 
 void up_vectorundefinsn(void);
 void up_vectorswi(void);
@@ -474,18 +475,6 @@ void up_addregion(void);
 /* Watchdog timer ***********************************************************/
 
 void up_wdtinit(void);
-
-/* LED interfaces provided by board-level logic *****************************/
-
-#ifdef CONFIG_ARCH_LEDS
-void board_led_initialize(void);
-void board_led_on(int led);
-void board_led_off(int led);
-#else
-# define board_led_initialize()
-# define board_led_on(led)
-# define board_led_off(led)
-#endif
 
 /* Networking ***************************************************************/
 

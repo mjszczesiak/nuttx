@@ -52,15 +52,30 @@
 /* Configuration ************************************************************/
 
 /* Clocking *****************************************************************/
-/* Crystal frequencies */
+/* Crystal frequencies
+ *
+ * - A 24 MHz oscillator circuit (Y4) is connected to the on-board
+ *   microcontroller. This oscillator circuit functions as the controller’s
+ *   primary oscillator. Depending on which is populated on the starter kit
+ *   board, a 24 MHz crystal (Y1) may be used instead of Y4.
+ * - The starter kit also has provisions for an external secondary 32 kHz
+ *   oscillator (Y2); however, this is not populated.
+ */
 
-#define BOARD_POSC_FREQ        24000000  /* Primary OSC XTAL frequency (24MHz) */
-#define BOARD_SOSC_FREQ        32768     /* Secondary OSC XTAL frequency (32.768KHz) */
+#define BOARD_POSC_FREQ        24000000  /* Primary OSC XTAL frequency (Y4, 24MHz) */
+#define BOARD_SOSC_FREQ        32000     /* Secondary OSC XTAL frequency (Y2, 32KHz) */
 
-/* Oscillator modes */
+/* Oscillator modes.
+ *
+ * - BOARD_POSC_ECMODE:  An external oscillator is connected to OSC1/OSC2
+ * - BOARD_POSC_HSMODE:  An external crystal or resonator is connected to
+ *                       OSC1/OSC2
+ */
 
 #define BOARD_FNOSC_SPLL       1         /* Use system PLL */
-#define BOARD_POSC_HSMODE      1         /* High-speed crystal (HS) mode */
+#define BOARD_POSC_ECMODE      1         /* External clock (EC) mode */
+#define BOARD_POSC_SWITCH      1         /* Enable clock switching */
+#undef  BOARD_POSC_FSCM                  /* Disable clock monitoring */
 
 /* PLL configuration and resulting CPU clock.
  * CPU_CLOCK = ((POSC_FREQ / IDIV) * MULT) / ODIV
@@ -143,7 +158,7 @@
 
 /* Watchdog pre-scaler (re-visit) */
 
-#define BOARD_WD_PRESCALER     8         /* Watchdog pre-scaler */
+#define BOARD_WD_PRESCALER     1048576   /* Watchdog pre-scaler */
 
 /* LED definitions **********************************************************/
 /* LED Configuration ********************************************************/
@@ -213,6 +228,26 @@
  * up resistors. When Idle, the switches are pulled high (+3.3V), and they
  * are grounded when pressed.
  */
+
+#define BUTTON_SW1             0
+#define BUTTON_SW2             1
+#define BUTTON_SW3             2
+#define NUM_BUTTONS            3
+
+#define BUTTON_SW1_BIT         (1 << BUTTON_SW1)
+#define BUTTON_SW2_BIT         (1 << BUTTON_SW2)
+#define BUTTON_SW3_BIT         (1 << BUTTON_SW3)
+
+/* UARTS ********************************************************************/
+/* If the PIC32MZEC Adaptor Board is connected, then UART1 signals are
+ * available at these locations on the adaptor board:
+ *
+ *   JP7 Pin 2: RPC14
+ *   JP8 Pin 2: RPB3
+ */
+
+#define BOARD_U1RX_PPS  U1RXR_RPC14
+#define BOARD_U1TX_PPS  U1TX_RPB3R
 
 /****************************************************************************
  * Public Types

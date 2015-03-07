@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/armv7-a/arm_assert.c
  *
- *   Copyright (C) 2013-2014 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2013-2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,7 @@
 
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
+#include <nuttx/board.h>
 #include <nuttx/usb/usbdev_trace.h>
 
 #include <arch/board/board.h>
@@ -366,5 +367,10 @@ void up_assert(const uint8_t *filename, int lineno)
         filename, lineno);
 #endif
   up_dumpstate();
+
+#ifdef CONFIG_BOARD_CRASHDUMP
+  board_crashdump(up_getsp(), g_readytorun.head, filename, lineno);
+#endif
+
   _up_assert(EXIT_FAILURE);
 }

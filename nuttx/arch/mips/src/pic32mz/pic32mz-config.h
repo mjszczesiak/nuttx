@@ -48,6 +48,52 @@
 /************************************************************************************
  * Pre-processor Definitions
  ************************************************************************************/
+/* GPIO IRQs ************************************************************************/
+
+#ifndef PIC32MZ_GPIOIRQ
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTA
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTB
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTC
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTD
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTE
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTF
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTG
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTH
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTJ
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTK
+#endif
+
+#if CHIP_NPORTS < 1
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTA
+#endif
+#if CHIP_NPORTS < 2
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTB
+#endif
+#if CHIP_NPORTS < 3
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTC
+#endif
+#if CHIP_NPORTS < 4
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTD
+#endif
+#if CHIP_NPORTS < 5
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTE
+#endif
+#if CHIP_NPORTS < 6
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTF
+#endif
+#if CHIP_NPORTS < 7
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTG
+#endif
+#if CHIP_NPORTS < 8
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTH
+#endif
+#if CHIP_NPORTS < 9
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTJ
+#endif
+#if CHIP_NPORTS < 10
+#  undef CONFIG_PIC32MZ_GPIOIRQ_PORTK
+#endif
+
 /* UARTs ****************************************************************************/
 /* Don't enable UARTs not supported by the chip. */
 
@@ -145,6 +191,47 @@
 #  undef HAVE_SERIAL_CONSOLE
 #endif
 
+/* SPI ******************************************************************************/
+/* Don't enable SPI peripherals not supported by the chip. */
+
+#if CHIP_NSPI < 1
+#  undef CONFIG_PIC32MZ_SPI1
+#  undef CONFIG_PIC32MZ_SPI2
+#  undef CONFIG_PIC32MZ_SPI3
+#  undef CONFIG_PIC32MZ_SPI4
+#  undef CONFIG_PIC32MZ_SPI5
+#  undef CONFIG_PIC32MZ_SPI6
+#elif CHIP_NSPI < 2
+#  undef CONFIG_PIC32MZ_SPI2
+#  undef CONFIG_PIC32MZ_SPI3
+#  undef CONFIG_PIC32MZ_SPI4
+#  undef CONFIG_PIC32MZ_SPI5
+#  undef CONFIG_PIC32MZ_SPI6
+#elif CHIP_NSPI < 3
+#  undef CONFIG_PIC32MZ_SPI3
+#  undef CONFIG_PIC32MZ_SPI4
+#  undef CONFIG_PIC32MZ_SPI5
+#  undef CONFIG_PIC32MZ_SPI6
+#elif CHIP_NSPI < 4
+#  undef CONFIG_PIC32MZ_SPI4
+#  undef CONFIG_PIC32MZ_SPI5
+#  undef CONFIG_PIC32MZ_SPI6
+#elif CHIP_NSPI < 5
+#  undef CONFIG_PIC32MZ_SPI5
+#  undef CONFIG_PIC32MZ_SPI6
+#elif CHIP_NSPI < 6
+#  undef CONFIG_PIC32MZ_SPI6
+#endif
+
+/* Are any SPI peripherals enabled? */
+
+#undef CONFIG_PIC32MZ_SPI
+#if defined(CONFIG_PIC32MZ_SPI1) || defined(CONFIG_PIC32MZ_SPI2) || \
+    defined(CONFIG_PIC32MZ_SPI4) || defined(CONFIG_PIC32MZ_SPI4) || \
+    defined(CONFIG_PIC32MZ_SPI5) || defined(CONFIG_PIC32MZ_SPI6)
+#  define CONFIG_PIC32MZ_SPI 1
+#endif
+
 /* Device Configuration *************************************************************/
 /* DEVCFG3 */
 /* Configurable settings */
@@ -152,6 +239,7 @@
 #ifndef CONFIG_PIC32MZ_USERID               /* User ID */
 #  define CONFIG_PIC32MZ_USERID   0x584e    /* "NX" */
 #endif
+#define ADEVCFG3_USERID           0x1234
 
 #ifndef CONFIG_PIC32MZ_FMIIEN               /* Ethernet MII enable: 0=RMII 1=MII */
 #  define CONFIG_PIC32MZ_FMIIEN   1         /* MII enabled */
@@ -175,9 +263,9 @@
 
 #ifndef CONFIG_PIC32MZ_FUSBIDIO              /* USB USBID selection: 0=GPIO 1=USB */
 #  ifdef CONFIG_PIC32MZ_USB
-#    define CONFIG_PIC32MZ_FUSBIDIO 0        /* USBID pin is controlled by the IOPORT configuration */
-#  else
 #    define CONFIG_PIC32MZ_FUSBIDIO 1        /* USBID pin is controlled by the USB module */
+#  else
+#    define CONFIG_PIC32MZ_FUSBIDIO 0        /* USBID pin is controlled by the IOPORT configuration */
 #  endif
 #endif
 
@@ -205,31 +293,36 @@
 #  error "Unsupported BOARD_PLL_IDIV"
 #endif
 
-/* System PLL Divided Input Clock Frequency Range bits */
+/* System PLL Divided Input Clock Frequency Range bits.
+ * REVISIT: Based on the name of this configuration value, the following
+ * comparisons do not seem correct (the input clock is not divided).
+ * These comparisons are used because this results in settings that match
+ * Microchip sample code.
+ */
 
-#if (BOARD_PLL_INPUT / BOARD_PLL_IDIV) < 5000000
+#if BOARD_PLL_INPUT < 5000000
 #  error BOARD_PLL_INPUT / BOARD_PLL_IDIV too low
-#  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_BYPASS /* < 5 MHz */
-#elif (BOARD_PLL_INPUT / BOARD_PLL_IDIV) < 9000000
-#  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_5_10MHZ /* 5-10 MHz */
-#elif (BOARD_PLL_INPUT / BOARD_PLL_IDIV) < 14500000
-#  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_8_16MHZ /* 8-16 MHz */
-#elif (BOARD_PLL_INPUT / BOARD_PLL_IDIV) < 23500000
+#  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_BYPASS   /* < 5 MHz */
+#elif BOARD_PLL_INPUT < 10000000
+#  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_5_10MHZ  /* 5-10 MHz */
+#elif BOARD_PLL_INPUT < 16000000
+#  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_8_16MHZ  /* 8-16 MHz */
+#elif BOARD_PLL_INPUT < 26000000
 #  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_13_26MHZ /* 13-26 MHz */
-#elif (BOARD_PLL_INPUT / BOARD_PLL_IDIV) < 39000000
+#elif BOARD_PLL_INPUT < 42000000
 #  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_21_42MHZ /* 21-42 MHz */
-#elif (BOARD_PLL_INPUT / BOARD_PLL_IDIV) < 64000000
+#elif BOARD_PLL_INPUT <= 64000000
 #  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_34_64MHZ /* 36-64 MHz */
 #else
-#  error BOARD_PLL_INPUT / BOARD_PLL_IDIV too high
-#  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_34_64MHZ /* 36-64 MHz */
+#  error BOARD_PLL_INPUT too high
+#  define CONFIG_PIC32MZ_FPLLRNG  DEVCFG2_FPLLRNG_34_64MHZ /* > 64 MHz */
 #endif
 
 /* PLL multiplier */
 
 #undef CONFIG_PIC32MZ_PLLMULT
 #if BOARD_PLL_MULT >= 1 && BOARD_PLL_MULT <= 128
-#  define CONFIG_PIC32MZ_PLLMULT  ((BOARD_PLL_MULT-1) << DEVCFG2_FPLLIDIV_SHIFT)
+#  define CONFIG_PIC32MZ_PLLMULT  ((BOARD_PLL_MULT-1) << DEVCFG2_FPLLMULT_SHIFT)
 #else
 #  error "Unsupported BOARD_PLL_MULT"
 #endif
@@ -251,12 +344,17 @@
 #  error "Unsupported BOARD_PLL_ODIV"
 #endif
 
+#if BOARD_POSC_FREQ == 12000000
+#  define CONFIG_PIC32MZ_UPLLFSEL DEVCFG2_UPLLFSEL_12MHZ
+#else
+#  define CONFIG_PIC32MZ_UPLLFSEL DEVCFG2_UPLLFSEL_24MHZ
+#endif
+
 /* Not yet configurable settings (REVISIT) */
 
                                            /* System PLL Input Clock Select bit */
 #define CONFIG_PIC32MZ_FPLLICLK   0        /* POSC is selected as input to the System PLL */
                                            /* USB PLL Input Frequency Select bit */
-#define CONFIG_PIC32MZ_UPLLFSEL   DEVCFG2_UPLLFSEL
 
 /* DEVCFG1 */
 /* Configurable settings */
@@ -375,18 +473,19 @@
 
 #undef CONFIG_PIC32MZ_FWDTEN
 #if CONFIG_PIC32MZ_WDTENABLE
-#  define CONFIG_PIC32MZ_FWDTEN  DEVCFG1_FWDTEN
+#  define CONFIG_PIC32MZ_FWDTEN  DEVCFG1_FWDT_ENSABLED
 #else
-#  define CONFIG_PIC32MZ_FWDTEN  0
+#  define CONFIG_PIC32MZ_FWDTEN  DEVCFG1_FWDT_DISABLED
 #endif
+#define ADEVCFG1_FWDTEN          DEVCFG1_FWDT_DISABLED
 
 /* Not yet configurable settings */
 
-#define CONFIG_PIC32MZ_DMTINV    DEVCFG1_FNOSC_FRCDIV
-#define CONFIG_PIC32MZ_WDTSPGM   DEVCFG1_WDTSPGM
-#define CONFIG_PIC32MZ_WINDIS    DEVCFG1_WINDIS
+#define CONFIG_PIC32MZ_DMTINV    DEVCFG1_DMTINV_127_128
+#define CONFIG_PIC32MZ_WDTSPGM   DEVCFG1_WDTSPGM_STOP
+#define CONFIG_PIC32MZ_WINDIS    DEVCFG1_WDT_NORMAL
 #define CONFIG_PIC32MZ_FWDTWINSZ DEVCFG1_FWDTWINSZ_25
-#define CONFIG_PIC32MZ_DMTCNT    DEVCFG1_DMTCNT_MASK
+#define CONFIG_PIC32MZ_DMTCNT    DEVCFG1_DMTCNT_MAX
 #define CONFIG_PIC32MZ_FDMTEN    0
 
 /* DEVCFG0 */
@@ -420,13 +519,27 @@
 #  define CONFIG_PIC32MZ_TRCEN 0
 #endif
 
+#ifdef CONFIG_MIPS_MICROMIPS
+#  define CONFIG_PIC32MZ_BOOTISA DEVCFG0_BOOT_MICROMIPS
+#else
+#  define CONFIG_PIC32MZ_BOOTISA DEVCFG0_BOOT_MIPS32
+#endif
+
+#ifndef CONFIG_PIC32MZ_ECC_OPTION
+#  define CONFIG_PIC32MZ_ECC_OPTION 3
+#endif
+#if CONFIG_PIC32MZ_ECC_OPTION < 0 || CONFIG_PIC32MZ_ECC_OPTION > 3
+#  error Invalid CONFIG_PIC32MZ_ECC_OPTION Invalid
+#  undef CONFIG_PIC32MZ_ECC_OPTION
+#  define CONFIG_PIC32MZ_ECC_OPTION 3
+#endif
+#define CONFIG_PIC32MZ_FECCCON  (CONFIG_PIC32MZ_ECC_OPTION << DEVCFG0_FECCCON_SHIFT)
+
 /* Not yet configurable settings */
 
-#define CONFIG_PIC32MZ_BOOTISA  0 /* microMIPS always */
-#define CONFIG_PIC32MZ_FECCCON  DEVCFG0_FECCCON_DISWR
-#define CONFIG_PIC32MZ_FSLEEP   DEVCFG0_FSLEEP
-#define CONFIG_PIC32MZ_DBGPER   DEVCFG0_DBGPER_MASK
-#define CONFIG_PIC32MZ_EJTAGBEN DEVCFG0_EJTAGBEN
+#define CONFIG_PIC32MZ_FSLEEP   DEVCFG0_FSLEEP_OFF
+#define CONFIG_PIC32MZ_DBGPER   DEVCFG0_DBGPER_ALL
+#define CONFIG_PIC32MZ_EJTAGBEN DEVCFG0_EJTAG_NORMAL
 
 /************************************************************************************
  * Public Types

@@ -2,8 +2,71 @@ configs/pic32mz-starterkit README
 ===============================
 
 This README file discusses the port of NuttX to the Microchip PIC32MZ
-Embedded Connectivity (EC) Starter Kit.  There are two configurations of the
-starter kit:
+Embedded Connectivity (EC) Starter Kit.
+
+Contents
+========
+
+  Port Status
+  Board Overview
+  On Board Debug Support
+  Creating Compatible NuttX HEX files
+  Serial Console
+  LEDs
+  Configurations
+
+Port Status
+===========
+
+  As of this writing (2015-03-01), the basic port is complete including
+  minimal support for the NuttShell (NSH) over UART1.  No testing has yet
+  been performed due to seemingly insurmountable debug problems:
+
+  1) On my test platform (Windows 8.1), Neither MPLABX IDE nor IPE recognize
+  the on-board OpenHCD debugger.  It appears completely useless to me.
+
+  2) By removing jumper JP2, I can disable the on-board OpenHCD debugger an
+  enable the RJ11 debug connector.  My ICD 3 does seems to work properly
+  using this configuration -- at least in the sense that it is recognized by
+  both MPLABX IDE and IPE.
+
+  3) However, I am still unable to write code to FLASH using MPLABX IDE.  It
+  give me uninterpretable error messages, for example, saying that it could
+  not write to FLASH:
+
+    Address: 1fc00480 Expected Value: ffffffff Received Value: ffffffff
+    Failed to program device
+
+  This could very well be some issue with my formatting of the nuttx.hex
+  file, but I have no understanding of what the solution might be.
+
+  4) I can write successfully using that same nuttx.hex file using MPLABX
+  IPE program.  No errors are observed and the flash content verifies
+  correctly.  But NuttX does not run.  I need a debugger to understand why.
+
+  5) I thought I might be able to write the flash image using MPLABX IPE,
+  then debug the flash image using MPLABX IDE.  But no, MPLABX IPE insists
+  on clearing the DEVCFG0 DEBUG bit whenever it writes the flash image and,
+  as a result, MPLABX IDE will always complain the board is not ready for
+  debugging.
+
+  6) My last hope is to use a Segger J-Link.  I can configure the PIC32MZ
+  to enable JTAG and the J-Link does support PIC32 debug.  However, I need
+  a 20-pin JTAG to either a 14-pin MIPS connector or a Microchip RJ11
+  connector.  Living in Costa Rica, those parts are not readily available.
+  I have a 20- to 14-pin JTAG adapter in transit, but living in Costa Rica
+  I don't expect to see that for around three weeks.  In the mean time, I
+  am dead in the water.
+
+  Given the way things have been going, I am not at all optimistic that the
+  job will become do-able, even after I have the adapter in hand.  Microchip
+  could certainly have made life easier on this one.
+
+Board Overview
+==============
+
+There are two configurations of the Microchip PIC32MZ Embedded Connectivity
+(EC) Starter Kit:
 
   1) The PIC32MZ Embedded Connectivity Starter Kit based on the
      PIC32MZ2048ECH144-I/PH chip (DM320006), and
@@ -33,14 +96,13 @@ Key features of the PIC32MZ Starter Kit include;
 
 The PIC32MZ starter kit comes complete with a LAN8740 PHY daughter board.
 
-Contents
-========
+Testing was performed with the following additional hardware:
 
-  On Board Debug Support
-  Creating Compatible NuttX HEX files
-  Serial Console
-  LEDs
-  Configurations
+- Microchip PIC32MZ Embedded Connectivity (EC) Adapter Board (AC320006)
+  that allows connection of the PIC32MZEC Starter Kit to the Microchip
+  Multimedia Expansion Board (MEB, DM320005) or PIC32 I/O Expansion Board
+  (DM320002).  These were previously used with the PIC32MX bringup.
+- Microchip Multimedia Expansion Board II (MEB II,  DM320005-2).
 
 On Board Debug Support
 ======================
@@ -102,7 +164,44 @@ Creating Compatible NuttX HEX files
 Serial Console
 ==============
 
-To be provided
+  The Microchip PIC32MZ Embedded Connectivity (EC) Adapter Board (AC320006)
+  brings out UART signals as follows:
+
+  JP7 redirects J1 U3_TX to either J2 SOSCO/RC14 or U1_TX:
+
+    Adapter
+    -----------------------------------------------------------------------
+    JP7, Pin 1: J2 Pin 32, SOSCO/RC14
+         Pin 2: J1 Pin 17, U3_TX
+         Pin 3: J2 Pin 90, U1_TX
+
+    PIC32MZ Starter Kit
+    -----------------------------------------------------------------------
+                J1 Pin 17, SOSCO/RC14  PIC32MZ SOSCO/RPC14/T1CK/RC14
+
+    RPC14 supports U1RX, U4RX, and U3TX
+
+  JP8 redirects J1 RB3/AN3/SDO4/WIFI_SDI to either J2 AN3/SDO4/WIFI_SDI or U3_RX:
+
+    Adapter                                        PIC32MZ Starter Kit
+    ---------------------------------------------- -------------------------
+    JP8, Pin 1: J2, Pin 66,  AN3/SDO4/WIFI_SDI
+         Pin 2: J1, Pin 105, RB3/AN3/SDO4/WIFI_SDI
+         Pin 3: J2, Pin 88,  U3_RX
+
+    PIC32MZ Starter Kit
+    -----------------------------------------------------------------------
+                J1, Pin 105, AN3/C2INA/RPB3/RB3
+
+    RPB3 supports U3RX, U1TX, and U5TX
+
+  Thus UART1 or UART3 could be used as a serial console if only the
+  PIC32MZEC Adapter Board is connected.
+
+  The default serial configuration here in these configurations is UART1
+  using RPC14 and RPB3.  That UART selection can be change by running 'make
+  menuconfig'.  The UART pin selections would need to be changed by editing
+  configs/pc32mz-starterkit/include/board.h.
 
 LEDs and Buttons
 ================
@@ -182,9 +281,18 @@ Where <subdir> is one of the following:
     2. Serial Output
 
        The OS test produces all of its test output on the serial console.
-       This configuration has UART1 enabled as a serial console.
+       This configuration has UART1 enabled as a serial console.  This
+       can easily be changed by reconfiguring with 'make menuconfig'.
 
     3. Toolchain
 
        By default, the Pinguino MIPs tool chain is used.  This toolchain
        selection can easily be changed with 'make menuconfig'.
+
+    4. Default configuration:  These are other things that you may want to
+       change in the configuration:
+
+       CONFIG_ARCH_CHIP_PIC32MZ2048ECM=y : Assumes part with Crypto Engine
+       CONFIG_PIC32MZ_DEBUGGER_ENABLE=n  : Debugger is disabled
+       CONFIG_PIC32MZ_TRACE_ENABLE=n     : Trace is disabled
+       CONFIG_PIC32MZ_JTAG_ENABLE=n      : JTAG is disabled

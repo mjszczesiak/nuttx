@@ -9894,3 +9894,51 @@
 	* include/sys/select.h: Extend the fd_set type definition so that it
 	  can handle more than 32 descriptors (if so configured).  From Max
 	  Neklyudov (2015-02-25).
+	* net/netdev/netdev_unregister.c:  Fix a list handling error in
+	  netdev_unregister().  From Max Neklyudov (2015-02-27).
+	* net/netdev/netdev_register.c: Improve the network device registration
+	  logic.  When multiple link types are used, modify how each interface
+	  number is assigned to the device name by incrementing the device
+	  number individually for each interface link type.  From Max Neklyudov
+	  (2015-02-27).
+	* include/nuttx/board.h:  Remove common board function prototypes from
+	  other files and consolidate them in this new header file (2015-02-27).
+	* arch/mips/src/pic32mz/: Implement support IO port interrupts
+	  (2015-03-01).
+	* configs/pic32mz-starterkit/src: Add support for on-board buttons
+	  (2015-03-01).
+	* include/nuttx/spi/spi.h:  Add an SPIDEV_USER so that there can be
+	  board-specific definitions of SPI devices (2015-03-01).
+	* arch/arm/src/stm32 and arch/arm/src/stm32: Adds architecture support
+	  for the STM32F372 and F373 (no board support yet). Only tested on
+	  STM32F373CC, but should work on the rest.  Contributed by  Marten
+	  Svanfeldt (2015-03-01).
+	* arch/mips/src/pic32mz/pic32mz-spi.c and chip/pic32mz-spi.h:  Add
+	  support for a basic SPI driver for the PIC32MZ (2015-03-03).
+	* include/nuttx/i2c.h:  Add a user provided void * argument to the
+	  I2C callback method for the I2C slave interface.  Suggested by
+	  Nate Weibley (2015-03-03).
+	* crypto/, include/nuttx/crypto, and arm/src/common/up_initialize.c:
+	  Fix issues when AES support was added for the STM32L1.  From Juha
+	  Niskanen (2015-03-04).
+	* arch/arm/src/stm32/stm32_spi.c and .h: Add missing SPI callback
+	  functions to the STM32 SPI driver.  From Freddie Chopin (2015-03-04).
+	* arch/*/src/*/*_assert.c, configs/Kconfig, and include/nuttx/board.h:
+	  Add support for dumping board-specific information on assertion.
+	  From David Sidrane (2015-03-04).
+	* drivers/spi/Kconfig: Add missing CONFIG_SPI_CALLBACK selection.  Noted
+	  by Freddie Chopin (2015-03-04).
+	* arch/arm/src/samv7 and include/samv7:  Add basic build directories
+	  and configuration logic for the Atmel SAMV7 family (2015-03-05).
+	* arch/arm/src/Makefile, armv7-m/Toolchain.defs: Make ARM build system
+	  Cortex-M7 ready (2015-03-05).
+	* arch/arm/src/sam34/sam_start.c:  Leverage start-up logic from STM32
+	  to (1) Enable the FPU and (2) perform IDLE stack coloration
+	  (2015-03-05).
+	* arch/arm/src/armv7-m/up_lazyexception.S, Kconfig and severl other
+	  files:  Add support for lazy FPU state saving.  Not yet verified.
+	  (2015-03-06).
+	* arch/arm/Kconfig, Make.defs, sam_start.c, configs/Kconfig,
+	  samv71-xult: Add a bare bones framework that will do nothing more than
+	  support configuration for the Atmel SAMV71 Xplained Ultra board.  Very
+	  much a work in progress (2015-03-06).
