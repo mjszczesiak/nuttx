@@ -1,8 +1,9 @@
-/*****************************************************************************
- * arch/arm/src/efm32/efm32_rmu.h
+/****************************************************************************
+ * Name: sam_mpuinitialize
+ * arch/arm/src/samv7/sam_mpuinit.h
  *
- *   Copyright (C) 2015 Pierre-noel Bouteville . All rights reserved.
- *   Authors: Pierre-noel Bouteville <pnb990@gmail.com>
+ *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,76 +34,87 @@
  *
  ****************************************************************************/
 
-#ifndef __ARCH_ARM_SRC_EFM32_EFM32_RMU_H
-#define __ARCH_ARM_SRC_EFM32_EFM32_RMU_H
+#ifndef __ARCH_ARM_SRC_SAMV7_SAM_MPUINIT_H
+#define __ARCH_ARM_SRC_SAMV7_SAM_MPUINIT_H
 
 /****************************************************************************
+ * Name: sam_mpuinitialize
  * Included Files
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include "chip/efm32_rmu.h"
 
-#ifdef CONFIG_EFM32_RMU
+#include <sys/types.h>
+#include <stdint.h>
 
 /****************************************************************************
- * Pre-processor Definitions
+ * Name: sam_mpuinitialize
+ * Definitions
  ****************************************************************************/
-/* Configuration ************************************************************/
-
-#ifndef CONFIG_DEBUG
-#  undef CONFIG_DEBUG_VERBOSE
-#  undef CONFIG_EFM32_RMU_DEBUG
-#endif
-
-#ifdef CONFIG_EFM32_RMU_DEBUG
-#  define rmudbg lldbg
-#  ifdef CONFIG_DEBUG_VERBOSE
-#    define rmuvdbg lldbg
-#  else
-#    define rmuvdbg(x...)
-#  endif
-#else
-#  define rmudbg(x...)
-#  define rmuvdbg(x...)
-#endif
 
 /****************************************************************************
+ * Name: sam_mpuinitialize
+ * Public Types
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: sam_mpuinitialize
+ * Inline Functions
+ ****************************************************************************/
+
+#ifndef __ASSEMBLY__
+
+/****************************************************************************
+ * Name: sam_mpuinitialize
  * Public Data
  ****************************************************************************/
 
-extern uint32_t g_efm32_rstcause;
+#undef EXTERN
+#if defined(__cplusplus)
+#define EXTERN extern "C"
+extern "C"
+{
+#else
+#define EXTERN extern
+#endif
 
 /****************************************************************************
  * Public Function Prototypes
  ****************************************************************************/
-/************************************************************************************
- * Name: efm32_rmu_initialize
+
+/****************************************************************************
+ * Name: sam_mpuinitialize
  *
  * Description:
- *    Store reset cause into g_efm32_rstcause then clear reset cause register.
+ *   Configure the MPU to permit user-space access to only unrestricted SAMV7
+ *   resources.
  *
- ************************************************************************************/
+ ****************************************************************************/
 
-void efm32_rmu_initialize(void);
-const char* efm32_reset_cause_list_str(uint32_t reg, unsigned int *idx);
-
-/************************************************************************************
- * Name: efm32_reset_cause_list_str
- *
- * Description:
- *    Return next reset cause string, NULL if no more reset cause.
- *
- * Input Parmeters:
- *   reg: reset cause register to decode (like g_efm32_rstcause)
- *   idx: Use to keep in maind reset cause decoding position.
- *        set *idx to zero before first call.
- *
- ************************************************************************************/
-
-#ifdef CONFIG_EFM32_RMU_DEBUG
-const char *efm32_reset_cause_list_str(uint32_t reg, unsigned int *idx);
+#ifdef CONFIG_BUILD_PROTECTED
+void sam_mpuinitialize(void);
+#else
+#  define sam_mpuinitialize()
 #endif
 
-#endif /* CONFIG_EFM32_RMU */
-#endif /* __ARCH_ARM_SRC_EFM32_EFM32_RMU_H */
+/****************************************************************************
+ * Name: sam_mpu_uheap
+ *
+ * Description:
+ *  Map the user heap region.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_BUILD_PROTECTED
+void sam_mpu_uheap(uintptr_t start, size_t size);
+#else
+#  define sam_mpu_uheap(start,size)
+#endif
+
+#undef EXTERN
+#if defined(__cplusplus)
+}
+#endif
+
+#endif /* __ASSEMBLY__ */
+#endif /* __ARCH_ARM_SRC_SAMV7_SAM_MPUINIT_H */
