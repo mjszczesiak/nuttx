@@ -92,6 +92,11 @@
 #  define CONFIG_SAMV7_NLLDESC SAMV7_NDMACHAN
 #endif
 
+/* These cache operations are not yet available */
+
+#undef HAVE_CLEAN_DCACHE_RANGE
+#undef HAVE_INVALIDATE_DCACHE_RANGE
+
 /****************************************************************************
  * Private Types
  ****************************************************************************/
@@ -169,7 +174,7 @@ static const struct sam_pidmap_s g_xdmac_rxchan[] =
   { SAM_PID_UART2,  XDMACH_UART2_RX  }, /* UART2 Receive */
   { SAM_PID_UART3,  XDMACH_UART3_RX  }, /* UART3 Receive */
   { SAM_PID_UART4,  XDMACH_UART4_RX  }, /* UART4 Receive */
-  { SAM_PID_SSC,    XDMACH_SSC_RX    }, /* SSC Receive */
+  { SAM_PID_SSC0,   XDMACH_SSC_RX    }, /* SSC Receive */
   { SAM_PID_PIOA,   XDMACH_PIOA_RX   }, /* PIOA Receive */
   { SAM_PID_AFEC0,  XDMACH_AFEC0_RX  }, /* AFEC0 Receive */
   { SAM_PID_AFEC1,  XDMACH_AFEC1_RX  }, /* AFEC1 Receive */
@@ -202,7 +207,7 @@ static const struct sam_pidmap_s g_xdmac_txchan[] =
   { SAM_PID_UART3,  XDMACH_UART3_TX  }, /* UART3 Transmit */
   { SAM_PID_UART4,  XDMACH_UART4_TX  }, /* UART4 Transmit */
   { SAM_PID_DACC,   XDMACH_DACC_TX   }, /* DACC Transmit */
-  { SAM_PID_SSC,    XDMACH_SSC_TX    }, /* SSC Transmit */
+  { SAM_PID_SSC0,   XDMACH_SSC_TX    }, /* SSC Transmit */
   { SAM_PID_AES,    XDMACH_AES_TX    }, /* AES Transmit */
   { SAM_PID_PWM1,   XDMACH_PWM1_TX   }  /* PWM01Transmit */
 };
@@ -1086,7 +1091,7 @@ sam_allocdesc(struct sam_xdmach_s *xdmach, struct chnext_view1_s *prev,
 
               xdmach->lltail = descr;
 
-#if 0 /* REVISIT */
+#ifdef HAVE_CLEAN_DCACHE_RANGE /* REVISIT */
               /* Assume that we will be doing multiple buffer transfers and that
                * that hardware will be accessing the descriptor via DMA.
                */
@@ -1098,7 +1103,7 @@ sam_allocdesc(struct sam_xdmach_s *xdmach, struct chnext_view1_s *prev,
             }
         }
 
-#if 1 /* REVISIT */
+#ifndef HAVE_CLEAN_DCACHE_RANGE /* REVISIT */
       /* Assume that we will be doing multiple buffer transfers and that
        * that hardware will be accessing the descriptors via DMA.
        */
@@ -1502,7 +1507,7 @@ static void sam_dmaterminate(struct sam_xdmach_s *xdmach, int result)
    * to force reloads from memory.
    */
 
-#if 0 /* Revisit */
+#ifdef HAVE_INVALIDATE_DCACHE_RANGE /* Revisit */
   if (xdmach->rx)
     {
       arch_invalidate_dcache(xdmach->rxaddr, xdmach->rxaddr + xdmach->rxsize);
@@ -1868,7 +1873,7 @@ int sam_dmatxsetup(DMA_HANDLE handle, uint32_t paddr, uint32_t maddr,
 
   /* Clean caches associated with the DMA memory */
 
-#if 0 /* REVISIT */
+#ifdef HAVE_CLEAN_DCACHE_RANGE /* REVISIT */
   arch_clean_dcache(maddr, maddr + nbytes);
 #else
   arch_clean_dcache_all();
@@ -1953,7 +1958,7 @@ int sam_dmarxsetup(DMA_HANDLE handle, uint32_t paddr, uint32_t maddr,
 
   /* Clean caches associated with the DMA memory */
 
-#if 0 /* REVISIT */
+#ifdef HAVE_CLEAN_DCACHE_RANGE /* REVISIT */
   arch_clean_dcache(maddr, maddr + nbytes);
 #else
   arch_clean_dcache_all();
