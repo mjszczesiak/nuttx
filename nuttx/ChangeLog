@@ -9165,7 +9165,7 @@
 	* libc/stdio/lib_avsprintf.c: avsprintf():  Fix a bug in usage of
 	  va_list on x86.  On x86, va_list is a pointer to a single copy on the
 	  stack.  avsprintf() calls lib_vsprintf() twice and so traverses the
-	  va_list twice using va_start.  va_start modifies that single copy on 
+	  va_list twice using va_start.  va_start modifies that single copy on
 	  the stack so that the second call to lib_vsprintf() fails.  This appears
 	  to be an issue with x86 only so far (2014-12-8).
 	* stdint.h:  Don't use hex values to specify minimum values of fixed
@@ -9719,7 +9719,7 @@
 	  used in interrupt decoding logic.  Also remove the logic that
 	  unconditionally re-enables interrupts with the interrupt exits.  This
 	  interferes with the drivers ability to control the interrupt state.
-	  This is a necessary, sweeping, global change and unfortunately 
+	  This is a necessary, sweeping, global change and unfortunately
 	  to test (2015-02-09).
 	* mtd/ramtron.c:  Table of parts is not terminated properly if
 	  CONFIG_RAMTRON_FRAM_NON_JEDEC is not defined.  Noted by David
@@ -9971,3 +9971,69 @@
 	  Juha Niskanen (2015-03-12).
 	* arch/arm/src/stm32/stm32_usbdev.c: Fix stale initialization
 	  invalidating later NULL check.  From Juha Niskanen (2015-03-12).
+	* arch/arm/src/stm32/stm32_serial.c and chip/stm32f10xxx_dma.h: Fix
+	  RX DMA setup for UART5.  From  Jussi Kivilinna (2015-03-13).
+	* arch/arm/src/stm32/stm32_serial.c: Make input hardware flow-control
+	  work with RX DMA.  From Jussi Kivilinna (2015-03-13).
+	* drivers/pipes/pipe_common.c: Fix zero-lenth writes to pipes/FIFOs.
+	  From Jussi Kivilinna (2015-03-13).
+	* drivers/serial/serial.c: Report correct number of bytes free in
+	  serial buffer with FIONWRITE.  From Sami Pelkonen via Jussi Kivilinna
+	  (2015-03-13).
+	* drivers/mmcsd/mmcsd_spi.c: Debugging and manuals (this one
+	  https://www.sdcard.org/downloads/pls/simplified_specs/part1_410.pdf
+	  and this one https://www.sdcard.org/downloads/pls/simplified_specs/part1_410.pdf)
+	  shows that ACMD23 must be preceeded with CMD55 command as any other
+	  ACMD commands. Also, after the block reading wait loop must be
+	  inserted before writing the next block of data to the sd card.  From
+	  Dmitry Nikolaev via Jussi Kivilinna (2015-03-13).
+	* arch/arm/src/efm32/efm32_i2c.c:  Add I2C driver.  From Pierre-noel
+	  Bouteville (2015-03-14).
+	* fs/mount/, include.sys/mount, syscall/:  Add umount2().  umount() is
+	  now a macro that just calls umount2() with flags = 0 (2015-03-14).
+	* fs/mount/fs_umount2.c, all file systems, include/nuttx/fs/fs.h:  Pass
+	  the umount2() flags to every unbind() implementation.  That is where
+	  the decision to umount or not will be made (2015-03-14).
+	* fs/fat/fs_fat32.c: Fix a bug in the FAT unbind() logic.  There were
+	  problems with the way certain internal list handling was implemented.
+	  The end result is that newly opened or cloned file structures were
+	  never being added to the list of open files.  So when the unmount()
+	  happens, it always looked like there were not open files and a crash
+	  could ensue (2015-03-14).
+	* fs/fat/fs_fat32.c and fs_fat32.h: Add support for umount2(target,
+	  MNT_FORCE) in the FAT file system (2015-03-15).
+	* drivers/mmcsd/mmcsd_sdio.c:  Fix some bad logic when file system debug
+	  is turned on:  Arguments to syslog were missing so that garbage was
+	  being printed (2015-03-15).
+	* arch/arm/src/sama5/sam_hsmci.c:  Fix a bug in SAMA5 HSMCI.  The
+	  bitfield mask and shift values were reversed resulting in a trashed
+	  value for the number of blocks in the BLOCKR register.  This was
+	  sufficient to prevent DMA writes from working (2015-03-15).
+	* drivers/mtd/at24xx.c, Kconfig, and include/nuttx/fs/ioctl.h:  Add
+	  support for (1) the byte-oriented read() method, (2) devices that
+	  have extended memory regions, and (3) devices that use 8-bit
+	  addressing (2015-03-17).
+	* arch/mips/src/mips32/Kconfig, Toolchain.defs, and
+	  configs/pic32mz-starterkit/nsh/Make.defs:  Changes that will permit
+	  building of the PIC32MZ Start Kit configuration using MPLAB and the
+	  XC32 toolchain.  From David Sidrane (2015-03-17).
+	* arch/arm/src/stm32/stm32_rtc_lowerhalf.c:  Fix some errors in the
+	  STM32 RTC lower-half driver that cause compilation failures.  From
+	  shilo.xyz (2015-03-19).
+	* arch/arm/src/sama5/chip/sam_tc.h: Fix typos in timer/counter header
+	  file.  From Bob Doiron (2015-03-20).
+	* configs/olimexino-stm32: Board support for the Olimexino STM32 board
+	  from David Sidrane (2015-03-20).
+	* PIC32MZ:  Incorporated a set of patches that makes the basic NSH
+	  configuration on the PIC32MZ Starter Kit.  From Kristopher Tate
+	  (2015-03-22).
+	* arch/arm/src/tiva: (1) ADC driver has been re-organized; configuration
+	  is now handled in code instead of Kconfig to help reduce bloat and
+	  confusion. (2) Timer changed to remove ADC coupling in Kconfig to code
+	  and moved configuration up from arch/arm/src/tiva to
+	  configs/tm4c123g-launchpad/src. (3) GPIO driver needed small fixes in
+	  the configuration routines and discovered false-positive bugs in
+	  interrupt testing: interrupts are now verified to actually be working
+	  reliably. (4) Attempt to apply some consistency in the tiva arch/
+	  level's interface to the config/board/ level driver configuration.
+	  From Calvin Maguranis (2015-03-23).
