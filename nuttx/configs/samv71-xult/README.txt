@@ -49,7 +49,7 @@ Board Features
   - Embedded Debugger with Data Gateway Interface and Virtual COM port (CDC)
   - External power input (5-14V) or USB powered
 
-See the Atmel webite for further information about this board:
+See the Atmel website for further information about this board:
 
   - http://www.atmel.com/tools/atsamv71-xult.aspx
 
@@ -83,17 +83,40 @@ The BASIC nsh configuration is fully function (as desribed below under
      (of course with appropriate mounting and unmounting).  I all not sure
      of this and need to do more testing to characterize if the issue.
 
-  5. There is not yet any support for the following board features: QSPI, USB,
-     EMAC, AT24, or WM8904 nor for any non-board features).  Most of these
-     drivers will port easily from either the SAM3/4 or from the SAMA5Dx.
+  5. There is not yet any support for the following board features: QSPI or WM8904.
+     Many drivers will port easily from either the SAM3/4 or from the SAMA5Dx.
      So there is still plenty to be done.
 
-  6. There has been a quick'n'dirty port of the SAMA5D4-EK Ethernet logic
-     for the SAMV71-XULT.  There are still some cache-related issues to
-     be verified.  No testing has yet been performed and so the driver should
-     be considered non-functional.
+  6. There is a port of the SAMA5D4-EK Ethernet driver to the SAMV71-XULT.
+     This driver appears to be 100% functional with the following caveats:
 
-Serial Console
+     - There is a compiler optimization issue.  At -O2, there is odd
+       behavior on pings and ARP messages.  But the behavior is OK with
+       optimization set to -O2.  This may or may not be a compiler
+       optimization issue (it could also be a timing issue or a need
+       for some additional volatile qualifiers).
+
+     - I- and D-Caches are enabled but the D-Cache must be enabled in
+       write-through mode.  This is to work around issues with the RX and TX
+       descriptors with are 8-bytes in size.  But the D-Cache cache line size
+       is 32-bytes.  That means that you cannot reload, clean or invalidate a
+       descriptor without also effecting three neighboring descriptors.
+       Setting write through mode eliminates the need for cleaning the D-Cache.
+       If only reloading and invalidating are done, then there is no problem.
+
+  7. The USBHS device controller driver (DCD) is complete but non-functional.
+     At this point, work has stopped because I am stuck.  The problem is that
+     bus events are not occurring:  Nothing is detected by the USBHS when the
+     host is connected; no activity is seen on the bus by a USB analyzer when
+     the host is connected.  Possibilities: (1) the pullups on DM and DP are
+     not working.  This would prevent the host from detecting the presence of
+     the device.  the DETACH bit is, however, being correctly cleared  or (2)
+     some issue with clocking or configuration of the UTMI.  I see nothing
+     wrong this this case.   I have done extensive comparison of the Atmel
+     sample code and study of the data sheet, but I have not found the key to
+     solving this.
+
++nmnmSerial Console
 ==============
 
 The SAMV71-XULT has no on-board RS-232 drivers so it will be necessary to
@@ -111,6 +134,19 @@ use either the VCOM or an external RS-232 driver.  Here are some options.
       1    PD28   RX0     0       URXD3
       2    PD30   TX0     1       UTXD3
     ------ ------ ------- ------- --------
+
+    In this configuration, an external RS232 driver can also be used
+    instead of the shield.  Simply connext as follows:
+
+    --------- -----------
+    Arduino   RS-232
+    Pin Label Connection
+    --------- -----------
+    D0 (RXD)  RX
+    D1 (TXD)  TX
+    GND       GND
+    5VO       Vcc
+    --------- -----------
 
   - SAMV7-XULT EXTn connectors.  USART pins are also available the EXTn
     connectors.  The following are labelled in the User Guide for USART
@@ -444,6 +480,7 @@ Selecting the GMAC peripheral
 
   Networking Support
     CONFIG_NET=y                         : Enable Neworking
+    CONFIG_NET_NOINTS=y                  : Use the work queue, not interrupts for processing
     CONFIG_NET_SOCKOPTS=y                : Enable socket operations
     CONFIG_NET_ETH_MTU=562               : Maximum packet size (MTU) 1518 is more standard
     CONFIG_NET_ETH_TCP_RECVWNDO=562      : Should be the same as CONFIG_NET_ETH_MTU
@@ -469,6 +506,11 @@ Selecting the GMAC peripheral
     CONFIG_AT24XX_EXTENDED=y             : Supports an extended memory region
     CONFIG_AT24XX_EXTSIZE=160            : Extended address up to 0x9f
 
+  RTOS Features ->Work Queue Support
+    CONFIG_SCHED_WORKQUEUE=y             : Work queue support is needed
+    CONFIG_SCHED_HPWORK=y
+    CONFIG_SCHED_HPWORKSTACKSIZE=2048    : Might need to be increased
+
   Application Configuration -> Network Utilities
     CONFIG_NETUTILS_DNSCLIENT=y          : Enable host address resolution
     CONFIG_NETUTILS_TELNETD=y            : Enable the Telnet daemon
@@ -483,6 +525,17 @@ Selecting the GMAC peripheral
     CONFIG_NSH_NETMASK=0xffffff00        : Netmask
     CONFIG_NSH_NOMAC=n                   : We will get the IP address from EEPROM
                                          : Defaults should be okay for other options
+
+Cache-Related Issues
+--------------------
+
+I- and D-Caches can be enabled but the D-Cache must be enabled in write-
+through mode.  This is to work around issues with the RX and TX descriptors
+with are 8-bytes in size.  But the D-Cache cache line size is 32-bytes.
+That means that you cannot reload, clean or invalidate a descriptor without
+also effecting three neighboring descriptors. Setting write through mode
+eliminates the need for cleaning the D-Cache.  If only reloading and
+invalidating are done, then there is no problem.
 
 Using the network with NSH
 --------------------------
@@ -722,12 +775,136 @@ NOTES:
      System Type -> Toolchain:
        CONFIG_ARMV7M_TOOLCHAIN_GNU_EABIW=y : GNU ARM EABI toolchain
 
+     NOTE: As of this writing, there are issues with using this tool at
+     the -Os level of optimization.  This has not been proven to be a
+     compiler issue (as least not one that might not be fixed with a
+     well placed volatile qualifier).  However, in any event, it is
+     recommend that you use not more that -O2 optimization.
+
 Configuration sub-directories
 -----------------------------
 
   nsh:
 
-    Configures the NuttShell (nsh) located at examples/nsh.
+    Configures the NuttShell (nsh) located at examples/nsh.  There are two
+    NSH configurations:
+
+      - nsh.  This configuration is focused on low level, command-line
+        driver testing.  It has not network.
+      - netnsh.  This configuration is focused on network testing and
+        has only limited command support.
+
+    NOTES:
+
+    1. The serial console is configured by default for use with and Arduino
+       serial shield (UART3).  You will need to reconfigure if you will
+       to use a different U[S]ART.
+
+    2. Default stack sizes are large and should really be tuned to reduce
+       the RAM footprint:
+
+         CONFIG_SCHED_HPWORKSTACKSIZE=2048
+         CONFIG_IDLETHREAD_STACKSIZE=1024
+         CONFIG_USERMAIN_STACKSIZE=2048
+         CONFIG_PTHREAD_STACK_MIN=256
+         CONFIG_PTHREAD_STACK_DEFAULT=2048
+         CONFIG_POSIX_SPAWN_PROXY_STACKSIZE=1024
+         CONFIG_TASK_SPAWN_DEFAULT_STACKSIZE=2048
+         CONFIG_BUILTIN_PROXY_STACKSIZE=1024
+         CONFIG_NSH_TELNETD_DAEMONSTACKSIZE=2048
+         CONFIG_NSH_TELNETD_CLIENTSTACKSIZE=2048
+
+    3. NSH built-in applications are supported.  There are, however, not
+       enabled built-in applications.
+
+       Binary Formats:
+         CONFIG_BUILTIN=y           : Enable support for built-in programs
+
+       Application Configuration:
+         CONFIG_NSH_BUILTIN_APPS=y  : Enable starting apps from NSH command line
+
+    4. The network initialization thread is NOT enabled in this configuration.
+       As a result, networking initialization is performed serially with
+       NSH bring-up.  The time from reset to the NSH prompt will be determined
+       primarily by this network initialization time.  And can be especially
+       long, perhaps minutes, if the network cable is not connected!
+
+       If fast boot times are required, you need to perform asynchronous
+       network initialization as described under "Network Initialization Thread"
+
+    5. SDRAM is NOT enabled in this configuration.
+
+    6. TWI/I2C
+
+       TWIHS0 is enabled in this configuration.  The SAM V71 Xplained Ultra
+       supports two devices on the one on-board I2C device on the TWIHS0 bus:
+       (1) The AT24MAC402 serial EEPROM described above and (2) the Wolfson
+       WM8904 audio CODEC.  This device contains a MAC address for use with
+       the Ethernet interface.
+
+       Relevant configuration settings:
+
+         CONFIG_SAMV7_TWIHS0=y
+         CONFIG_SAMV7_TWIHS0_FREQUENCY=100000
+
+         CONFIG_I2C=y
+         CONFIG_I2C_TRANSFER=y
+
+    7. TWIHS0 is used to support 256 byte non-volatile storage.  This EEPROM
+       holds the assigned MAC address which is necessary for networking. The
+       EEPROM is also available for storage of configuration data using the
+       MTD configuration as described above under the heading, "MTD
+       Configuration Data".
+
+    8. Support for HSMCI is built-in by default. The SAMV71-XULT provides
+       one full-size SD memory card slot.  Refer to the section entitled
+       "SD card" for configuration-related information.
+
+       See "Open Issues" above for issues related to HSMCI.
+
+       The auto-mounter is not enabled.  See the section above entitled
+       "Auto-Mounter".
+
+    9. Performance-related Configuration settings:
+
+       CONFIG_ARMV7M_ICACHE=y                : Instruction cache is enabled
+       CONFIG_ARMV7M_DCACHE=y                : Data cache is enabled
+       CONFIG_ARMV7M_DCACHE_WRITETHROUGH=y   : Write through mode
+       CONFIG_ARCH_FPU=y                     : H/W floating point support is enabled
+       CONFIG_ARCH_DPFPU=y                   : 64-bit H/W floating point support is enabled
+
+       # CONFIG_ARMV7M_ITCM is not set       : Support not yet in place
+       # CONFIG_ARMV7M_DTCM is not set       : Support not yet in place
+
+       I- and D-Caches are enabled but the D-Cache must be enabled in write-
+       through mode.  This is to work around issues with the RX and TX
+       descriptors with are 8-bytes in size.  But the D-Cache cache line
+       size is 32-bytes.  That means that you cannot reload, clean or
+       invalidate a descriptor without also effecting three neighboring
+       descriptors. Setting write through mode eliminates the need for
+       cleaning the D-Cache.  If only reloading and invalidating are done,
+       then there is no problem.
+
+       Stack sizes are also large to simplify the bring-up and should be
+       tuned for better memory usages.
+
+    STATUS:
+    2015-03-29:  I- and D-caches are currently enabled, but as noted
+      above, the D-Cache must be enabled in write-through mode.  Also -Os
+      optimization is not being used (-O2).  If the cache is enabled in
+      Write-Back mode or if higher levels of optimization are enabled, then
+      there are failures when trying to ping the target from a host.
+
+  nsh:
+
+    Configures the NuttShell (nsh) located at examples/nsh.  There are two
+    NSH configurations:
+
+      - nsh.  This configuration is focused on low level, command-line
+        driver testing.  It has not network.
+      - netnsh.  This configuration is focused on network testing and
+        has only limited command support.
+
     NOTES:
 
     1. The serial console is configured by default for use with and Arduino
@@ -908,8 +1085,16 @@ Configuration sub-directories
 
        CONFIG_ARMV7M_ICACHE=y                : Instruction cache is enabled
        CONFIG_ARMV7M_DCACHE=y                : Data cache is enabled
+       CONFIG_ARMV7M_DCACHE_WRITETHROUGH=n   : Write back mode
        CONFIG_ARCH_FPU=y                     : H/W floating point support is enabled
        CONFIG_ARCH_DPFPU=y                   : 64-bit H/W floating point support is enabled
 
        # CONFIG_ARMV7M_ITCM is not set       : Support not yet in place
        # CONFIG_ARMV7M_DTCM is not set       : Support not yet in place
+
+       Stack sizes are also large to simplify the bring-up and should be
+       tuned for better memory usages.
+
+    STATUS:
+    2015-03-28: HSMCI TX DMA is disabled.  There are some issues with the TX
+      DMA that need to be corrected.

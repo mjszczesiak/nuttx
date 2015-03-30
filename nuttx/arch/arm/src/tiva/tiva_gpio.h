@@ -47,6 +47,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <debug.h>
 
 #include <nuttx/irq.h>
 
@@ -57,11 +58,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-/* Debug ********************************************************************/
-
-#ifndef CONFIG_DEBUG
-#  undef CONFIG_DEBUG_GPIO
-#endif
+/* Configuration ************************************************************/
 
 #if defined(CONFIG_ARCH_CHIP_LM3S) || defined(CONFIG_ARCH_CHIP_LM4F) || \
     defined(CONFIG_ARCH_CHIP_CC3200)
@@ -321,6 +318,24 @@
 #  define GPIO_PIN_5                  (5 << GPIO_PIN_SHIFT)
 #  define GPIO_PIN_6                  (6 << GPIO_PIN_SHIFT)
 #  define GPIO_PIN_7                  (7 << GPIO_PIN_SHIFT)
+
+/* Debug ********************************************************************/
+
+#ifndef CONFIG_DEBUG
+#  undef CONFIG_DEBUG_GPIO
+#endif
+
+#ifdef CONFIG_DEBUG_GPIO
+# define gpiodbg(format, ...)    dbg(format, ##__VA_ARGS__)
+# define gpiolldbg(format, ...)  lldbg(format, ##__VA_ARGS__)
+# define gpiovdbg(format, ...)   vdbg(format, ##__VA_ARGS__)
+# define gpiollvdbg(format, ...) llvdbg(format, ##__VA_ARGS__)
+#else
+# define gpiodbg(x...)
+# define gpiolldbg(x...)
+# define gpiovdbg(x...)
+# define gpiollvdbg(x...)
+#endif
 
 /****************************************************************************
  * Public Types
