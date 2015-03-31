@@ -10055,3 +10055,17 @@
 	  for RTC and/or the IWDG, while the LSE only for the RTC (and to output
 	  the MCO1 pin). This change is not verifed for any other platforms.
 	  From Leo Aloe3132
+	* Rename arch_nshinitialize() to board_app_initialize() (2015-03-30).
+	* ./*.mk, configs/.gitignore, Makefile, boardctl.c, include/nuttx/fs/ioctl,
+	  include/sys/boardctl.h, syscall.h, and syscall/:  Add a new non-
+	  standard OS interface called boardctl().  This is similar to a driver
+	  IOCTL call.  But this is an IOCTL call directly on the board logic.
+	  This function will eventually replace all of the ad hoc OS interfaces
+	  that are current used to perform application specific initialization
+	  and application driver test configuration.  It essentially formalizes
+	  and institutionalizes these rogue interface in to at least a single
+	  crazy call (2015-03-31).
+	* configs/: Modify all configurations:  Make sure that
+	  CONFIG_LIB_BOARDCTL=y appears wherever CONFIG_NSH_ARCHINIT=y appears.
+	  Remove support for CONFIG_NSH_ARCHMAC.  It is not used and there are
+	  better ways to do that operation (2015-03-31).
