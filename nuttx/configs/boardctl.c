@@ -98,29 +98,83 @@ int boardctl(unsigned int cmd, uintptr_t arg)
         break;
 
 #ifdef CONFIG_BOARDCTL_TSCTEST
-      /* CMD:           BOARDIOC_TSCTEST
+      /* CMD:           BOARDIOC_TSCTEST_SETUP
        * DESCRIPTION:   Touchscreen controller test configuration
-       * ARG:           0: Setup touchscreen test, 1: Teardown touchscreen test
-       * CONFIGURATION: CONFIG_LIB_BOARDCTL && 
-       * DEPENDENCIES:  Board logic must provide board_tsc_setup() and
-       *                board_tsc_teardown().
+       * ARG:           Touch controller device minor number
+       * CONFIGURATION: CONFIG_LIB_BOARDCTL && CONFIG_BOARDCTL_TSCTEST
+       * DEPENDENCIES:  Board logic must provide board_tsc_setup()
        */
 
-      case BOARDIOC_TSCTEST:
-        if (arg)
-          {
-            ret = board_tsc_setup();
-          }
-        else
-          {
-            ret = board_tsc_teardown();
-          }
+      case BOARDIOC_TSCTEST_SETUP:
+        {
+          ret = board_tsc_setup((int)arg);
+        }
+        break;
 
+      /* CMD:           BOARDIOC_TSCTEST_TEARDOWN
+       * DESCRIPTION:   Touchscreen controller test configuration
+       * ARG:           None
+       * CONFIGURATION: CONFIG_LIB_BOARDCTL && CONFIG_BOARDCTL_TSCTEST
+       * DEPENDENCIES:  Board logic must provide board_tsc_teardown()
+       */
+
+      case BOARDIOC_TSCTEST_TEARDOWN:
+        {
+          board_tsc_teardown();
+          ret = OK;
+        }
+        break;
+#endif
+
+#ifdef CONFIG_BOARDCTL_ADCTEST
+      /* CMD:           BOARDIOC_ADCTEST_SETUP
+       * DESCRIPTION:   ADC controller test configuration
+       * ARG:           None
+       * CONFIGURATION: CONFIG_LIB_BOARDCTL && CONFIG_BOARDCTL_ADCTEST
+       * DEPENDENCIES:  Board logic must provide board_adc_setup()
+       */
+
+      case BOARDIOC_ADCTEST_SETUP:
+        {
+          ret = board_adc_setup(();
+        }
+        break;
+#endif
+
+#ifdef CONFIG_BOARDCTL_GRAPHICS
+      /* CMD:           BOARDIOC_GRAPHICS_SETUP
+       * DESCRIPTION:   Configure graphics that require special initialization
+       *                procedures
+       * ARG:           A pointer to an instance of struct boardioc_graphics_s
+       * CONFIGURATION: CONFIG_LIB_BOARDCTL && CONFIG_BOARDCTL_GRAPHICS
+       * DEPENDENCIES:  Board logic must provide board_adc_setup()
+       */
+
+      case BOARDIOC_GRAPHICS_SETUP:
+        {
+          FAR struct boardioc_graphics_s *setup = 
+            ( FAR struct boardioc_graphics_s *)arg;
+
+          setup->dev = board_graphics_setup(setup->devno);
+          ret = setup->dev ? OK : -ENODEV;
+        }
         break;
 #endif
 
        default:
-         ret = -ENOTTY;
+         {
+#ifdef CONFIG_BOARDCTL_IOCTL
+           /* Boards may also select CONFIG_BOARDCTL_IOCTL=y to enable board-
+            * specific commands.  In this case, all commands not recognized
+            * by boardctl() will be forwarded to the board-provided board_ioctl()
+            * function.
+            */
+
+           ret = board_ioctl(cmd, arg);
+#else
+           ret = -ENOTTY;
+#endif
+         }
          break;
     }
 

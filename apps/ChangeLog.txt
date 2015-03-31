@@ -1228,3 +1228,12 @@
 	  instead of board_app_initaliaze().   Remove support for
 	  CONFIG_NSH_ARCHMAC.  It is not used and there are better ways to do
 	  that operation (2015-03-31).
+	* apps/examples/touchscreen:  No longer calls arch_tcinitialize() or
+	  arch_tcuninitialize().  Instead the new OS interface boardctl() is
+	  called to perform these test operations on the touchscreen driver
+	  (2015-03-31).
+	* apps/examples/adc: Change apps/examples/adc to that is now calls
+	  boardctl() instead of adc_devinit() in order to initalize the ADC
+	  device(2015-03-31).
+	* apps/examples/pwm/: Replace calls to pwm_devinit() in
+	  apps/examples/pwm with calls to boardctl() (2015-03-31).

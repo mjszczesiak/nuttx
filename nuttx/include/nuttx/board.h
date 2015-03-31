@@ -142,6 +142,130 @@ void board_initialize(void);
 
 #ifdef CONFIG_LIB_BOARDCTL
 int board_app_initialize(void);
+#endif /* CONFIG_LIB_BOARDCTL */
+
+/****************************************************************************
+ * Name: board_tsc_setup
+ *
+ * Description:
+ *   Each board that supports a touchscreen device must provide this function.
+ *   This function is called by application-specific, setup logic to
+ *   configure the touchscreen device.  This function will register the driver
+ *   as /dev/inputN where N is the minor device number.
+ *
+ *   This is an internal OS interface but may be invoked indirectly from
+ *   application-level touchscreen testing logic (perhaps by
+ *   apps/examples/touchscreen).  If CONFIG_LIB_BOARDCTL=y and
+ *   CONFIG_BOARDCTL_TSCTEST=y, then this functions will be invoked via the
+ *   (non-standard) boardctl() interface using the commands
+ *   BOARDIOC_TSCTEST_SETUP command.
+ *
+ * Input Parameters:
+ *   minor   - The input device minor number
+ *
+ * Returned Value:
+ *   Zero is returned on success.  Otherwise, a negated errno value is
+ *   returned to indicate the nature of the failure.
+ *
+ ****************************************************************************/
+
+int board_tsc_setup(int minor);
+
+/****************************************************************************
+ * Name: board_tsc_teardown
+ *
+ * Description:
+ *   Each board that supports a touchscreen device must provide this function.
+ *   This function is called by application-specific, setup logic to
+ *   uninitialize the touchscreen device.
+ *
+ *   This is an internal OS interface but may be invoked indirectly from
+ *   application-level touchscreen testing logic (perhaps by
+ *   apps/examples/touchscreen).  If CONFIG_LIB_BOARDCTL=y and
+ *   CONFIG_BOARDCTL_TSCTEST=y, then this functions will be invoked via the
+ *   (non-standard) boardctl() interface using the commands
+ *   BOARDIOC_TSCTEST_TEARDOWN command.
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Value:
+ *   None.
+ *
+ ****************************************************************************/
+
+void board_tsc_teardown(void);
+
+/****************************************************************************
+ * Name: board_adc_setup
+ *
+ * Description:
+ *   All architectures must provide the following interface in order to
+ *   work with examples/adc.
+ *
+ *   This is an internal OS interface but may be invoked indirectly from
+ *   application-level graphics logic.  If CONFIG_LIB_BOARDCTL=y and
+ *   CONFIG_BOARDCTL_ADCTEST=y, then this functions will be invoked via the
+ *   (non-standard) boardctl() interface using the commands
+ *   BOARDIOC_ADCTEST_SETUP command.
+ *
+ ****************************************************************************/
+
+int board_adc_setup(void);
+
+/****************************************************************************
+ * Name: board_pwm_setup
+ *
+ * Description:
+ *   All architectures must provide the following interface in order to
+ *   work with examples/pwm.
+ *
+ *   This is an internal OS interface but may be invoked indirectly from
+ *   application-level graphics logic.  If CONFIG_LIB_BOARDCTL=y and
+ *   CONFIG_BOARDCTL_PWMTEST=y, then this functions will be invoked via the
+ *   (non-standard) boardctl() interface using the commands
+ *   BOARDIOC_PWMTEST_SETUP command.
+ *
+ ****************************************************************************/
+
+int board_pwm_setup(void);
+
+/****************************************************************************
+ * Name: board_graphics_setup
+ *
+ * Description:
+ *   If the driver for the graphics device on the platform some unusual
+ *   initialization, then this board interface should be provided.
+ *
+ *   This is an internal OS interface but may be invoked indirectly from
+ *   application-level graphics logic.  If CONFIG_LIB_BOARDCTL=y and
+ *   CONFIG_BOARDCTL_GRAPHICS=y, then this functions will be invoked via the
+ *   (non-standard) boardctl() interface using the commands
+ *   BOARDIOC_GRAPHICS_SETUP command.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NX_LCDDRIVER
+struct lcd_dev_s;
+FAR struct lcd_dev_s *board_graphics_setup(unsigned int devno);
+#else
+struct fb_vtable_s;
+FAR struct fb_vtable_s *board_graphics_setup(unsigned int devno);
+#endif
+
+/****************************************************************************
+ * Name: board_ioctl
+ *
+ * Description:
+ *   If CONFIG_LIB_BOARDCTL=y, boards may also select CONFIG_BOARDCTL_IOCTL=y
+ *   enable board specific commands.  In this case, all commands not
+ *   recognized by boardctl() will be forwarded to the board-provided
+ *   board_ioctl() function.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_BOARDCTL_IOCTL
+int board_ioctl(unsigned int cmd, uintptr_t arg);
 #endif
 
 /****************************************************************************

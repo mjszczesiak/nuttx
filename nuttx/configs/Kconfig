@@ -1585,3 +1585,23 @@ endif
 config LIB_BOARDCTL
 	bool "Enabled boardctl() interface"
 	default n
+
+if LIB_BOARDCTL
+
+config BOARDCTL_TSCTEST
+	bool "Enable touchscreen test interfaces"
+	default n
+
+config BOARDCTL_ADCTEST
+	bool "Enable ADC test interfaces"
+	default n
+
+config BOARDCTL_GRAPHICS
+	bool "Enable custom graphics initialization interfaces"
+	default n
+
+config BOARDCTL_IOCTL
+	bool "Board-specific boardctl() commands"
+	default n
+
+endif # LIB_BOARDCTL

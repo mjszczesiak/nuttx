@@ -58,20 +58,77 @@
  * CONFIGURATION: CONFIG_LIB_BOARDCTL
  * DEPENDENCIES:  Board logic must provide board_app_initialization
  *
- * CMD:           BOARDIOC_TSCTEST
+ * CMD:           BOARDIOC_TSCTEST_SETUP
  * DESCRIPTION:   Touchscreen controller test configuration
- * ARG:           0: Setup touchscreen test, 1: Teardown touchscreen test
+ * ARG:           Touch controller device minor number
  * CONFIGURATION: CONFIG_LIB_BOARDCTL && CONFIG_BOARDCTL_TSCTEST
- * DEPENDENCIES:  Board logic must provide board_tsc_setup() and
- *                board_tsc_teardown().
+ * DEPENDENCIES:  Board logic must provide board_tsc_setup()
+ *
+ * CMD:           BOARDIOC_TSCTEST_TEARDOWN
+ * DESCRIPTION:   Touchscreen controller test configuration
+ * ARG:           None
+ * CONFIGURATION: CONFIG_LIB_BOARDCTL && CONFIG_BOARDCTL_TSCTEST
+ * DEPENDENCIES:  Board logic must provide board_tsc_teardown()
+ *
+ * CMD:           BOARDIOC_ADCTEST_SETUP
+ * DESCRIPTION:   ADC controller test configuration
+ * ARG:           None
+ * CONFIGURATION: CONFIG_LIB_BOARDCTL && CONFIG_BOARDCTL_ADCTEST
+ * DEPENDENCIES:  Board logic must provide board_adc_setup()
+ *
+ * CMD:           BOARDIOC_PWMTEST_SETUP
+ * DESCRIPTION:   PWM controller test configuration
+ * ARG:           None
+ * CONFIGURATION: CONFIG_LIB_BOARDCTL && CONFIG_BOARDCTL_PWMTEST
+ * DEPENDENCIES:  Board logic must provide board_pwm_setup()
+ *
+ * CMD:           BOARDIOC_GRAPHICS_SETUP
+ * DESCRIPTION:   Configure graphics that require special initialization
+ *                procedures
+ * ARG:           A pointer to an instance of struct boardioc_graphics_s
+ * CONFIGURATION: CONFIG_LIB_BOARDCTL && CONFIG_BOARDCTL_GRAPHICS
+ * DEPENDENCIES:  Board logic must provide board_adc_setup()
  */
 
-#define BOARDIOC_INIT     _BOARDIOC(0x0001)
-#define BOARDIOC_TSCTEST  _BOARDIOC(0x0002)
+#define BOARDIOC_INIT              _BOARDIOC(0x0001)
+#define BOARDIOC_TSCTEST_SETUP     _BOARDIOC(0x0002)
+#define BOARDIOC_TSCTEST_TEARDOWN  _BOARDIOC(0x0003)
+#define BOARDIOC_ADCTEST_SETUP     _BOARDIOC(0x0004)
+#define BOARDIOC_PWMTEST_SETUP     _BOARDIOC(0x0005)
+#define BOARDIOC_GRAPHICS_SETUP    _BOARDIOC(0x0006)
+
+/* If CONFIG_BOARDCTL_IOCTL=y, then boad-specific commands will be support.
+ * In this case, all commands not recognized by boardctl() will be forwarded
+ * to the board-provided board_ioctl() function.
+ *
+ * User defined board commands may begin with this value:
+ */
+
+#define BOARDIOC_USER              _BOARDIOC(0x0007)
 
 /****************************************************************************
  * Public Type Definitions
  ****************************************************************************/
+
+/* Structure used to pass arguments and get returned values from the
+ * BOARDIOC_GRAPHICS_SETUP command.
+ */
+
+#ifdef CONFIG_NX_LCDDRIVER
+struct lcd_dev_s;                /* Forward reference */
+#else
+struct fb_vtable_s;              /* Forward reference */
+#endif
+
+struct boardioc_graphics_s
+{
+  int devno;                     /* IN: Graphics device number */
+#ifdef CONFIG_NX_LCDDRIVER
+  FAR struct lcd_dev_s *dev;     /* OUT: LCD driver instance */
+#else
+  FAR struct fb_vtable_s *dev;   /* OUT: Framebuffer driver instance */
+#endif
+};
 
 /****************************************************************************
  * Public Function Prototypes

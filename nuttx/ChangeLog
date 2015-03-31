@@ -10069,3 +10069,25 @@
 	  CONFIG_LIB_BOARDCTL=y appears wherever CONFIG_NSH_ARCHINIT=y appears.
 	  Remove support for CONFIG_NSH_ARCHMAC.  It is not used and there are
 	  better ways to do that operation (2015-03-31).
+	* configs/Kconfig, boardctl.c, all touchscreen driver setup functions,
+	  include/board.h, include/sys/boardctl.h, and
+	  include/nuttx/input/touchscreen.h: arch_tcinitialize() and
+	  arch_tcunitinitialize() renamed to board_tsc_setup() and
+	  board_tsc_teardown().  These are not long called directly by
+	  applications but only indirectly throught the crappy boardctl() OS
+	  interface (2015-03-31).
+	* configs/Kconfig, boardctl.c, include/nuttx/board.h, include/sys/boardctl.h,
+	  and several ADC files in configs/<board>/src/:  Rename adc_devinit() to
+	  board_adc_setup().  Add support to the boardctl() interface so that it
+	  can call board_adc_setup() on behalf of an application.  Make sure that
+	  the proper features are enabled in the defconfig files that have
+	  CONFIG_EXAMPLES_ADC=y (2015-03-31).
+	* configs/*/defconfig:  Make sure that all defconfig files that require
+	  external graphics intiialization also enable the correct boarctl()
+	  settings (2015-03-31).
+	* include/nuttx/board.h, include/sys/boardctl.h, nuttx/configs/Kconfig and
+	  boardctl.c, and board configurations and PWM implementations: Rename
+	  pwm_devinit() to board_pwm_setup().  Add CONFIG_BOARDCTL_PWMTEST that
+	  will enable calling board_pwm_setup() from boardctl().  In all
+	  configurations that enable the apps/examples/pwm test, make sure that
+	  boardctl() support is properly enabled (2015-03-31).
