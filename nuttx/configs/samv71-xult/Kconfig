@@ -17,9 +17,11 @@ choice
 
 config SAMV71XULT_MXTXPLND_EXT1
 	bool "Connected on EXT1 (2x10 pin)"
+	depends on EXPERIMENTAL
 
 config SAMV71XULT_MXTXPLND_EXT2
 	bool "Connected on EXT2 (2x10 pin)"
+	depends on EXPERIMENTAL
 
 config SAMV71XULT_MXTXPLND_LCD
 	bool "Connected on LCD (50-pin)"
@@ -37,6 +39,15 @@ config SAMV71XULT_MXT_DEVMINOR
 	default 0
 
 endif # INPUT_MXT
+
+if LCD
+
+config SAMV71XULT_LCD_BGCOLOR
+	hex "Initial background color"
+	default 0x00
+
+endif # LCD
+
 endif # SAMV71XULT_MXTXPLND
 
 config SAMV71XULT_HSMCI0_AUTOMOUNT
@@ -67,5 +78,31 @@ config SAMV71XULT_HSMCI0_AUTOMOUNT_UDELAY
 	default 2000
 
 endif # SAMV71XULT_HSMCI0_AUTOMOUNT
+
+if AUDIO_WM8904
+
+config SAMV71XULT_WM8904_I2CFREQUENCY
+	int "WM8904 I2C Frequency"
+	default 400000
+	range 1 400000
+	---help---
+		This option selects the I2C frequency to use when communicating with
+		the WM8904 device.  The default, 400KHz, is the maximum supported by
+		the WM8904.  If you have problems communicating with the WM8904,
+		then you might want to try lowering this rate.
+
+choice
+	prompt "WM8904 MCLK source"
+	default SAMV71XULT_WM8904_SRCMAIN
+
+config SAMV71XULT_WM8904_SRCMAIN
+	bool "Main Clock (12MHz)"
+
+config SAMV71XULT_WM8904_SRCSCK
+	bool "Slow XTAL (32.768KHz)"
+	select SAMV71XULT_SLOWCLOCK
+
+endchoice # WM8904 MCLK source
+endif # AUDIO_WM8904
 
 endif # ARCH_BOARD_SAMV71_XULT

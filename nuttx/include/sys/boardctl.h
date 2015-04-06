@@ -147,8 +147,8 @@ struct boardioc_graphics_s
  *
  *   boardctl() is non-standard OS interface to alleviate the problem.  It
  *   basically circumvents the normal device driver ioctl interlace and allows
- *   the application to perform direction IOCTL-like calls to the board-specific
- *   logic.  In it is especially useful for setting up board operational and
+ *   the application to perform direct IOCTL-like calls to the board-specific
+ *   logic.  It is especially useful for setting up board operational and
  *   test configurations.
  *
  * Input Parameters:

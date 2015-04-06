@@ -18,6 +18,7 @@ Contents
   - LEDs and Buttons
   - AT24MAC402 Serial EEPROM
   - Networking
+  - Audio Interface
   - maXTouch Xplained Pro
   - Debugging
   - Configurations
@@ -62,17 +63,12 @@ Open Issues
 The BASIC nsh configuration is fully function (as desribed below under
 "Configurations").  There are still open issues that need to be resolved:
 
-  1. SDRAM support has been implemented and tested using the nsh
-     configuration (as desribed below).  Currently the memory test does not
-     pass.  I am suspecting that this is because D-Cache is enabled when
-     SDRAM is configured?
-
-  2. HSCMI. CONFIG_MMCSD_MULTIBLOCK_DISABLE=y is set to disable multi-block
+  1. HSCMI. CONFIG_MMCSD_MULTIBLOCK_DISABLE=y is set to disable multi-block
      transfers only because I have not yet had a chance to verify this.  The
      is very low priority to me but might be important to you if you are need
      very high performance SD card accesses.
 
-  3. HSMCI TX DMA is currently disabled for the SAMV7.  There is some
+  2. HSMCI TX DMA is currently disabled for the SAMV7.  There is some
      issue with the TX DMA setup (HSMCI TX DMA the same driver works with
      the SAMA5D4 which has a different DMA subsystem).  This is a bug that
      needs to be resolved.
@@ -82,15 +78,11 @@ The BASIC nsh configuration is fully function (as desribed below under
      #undef  HSCMI_NORXDMA              /* Define to disable RX DMA */
      #define HSCMI_NOTXDMA            1 /* Define to disable TX DMA */
 
-  4. There may also be some issues with removing and re-inserting SD cards
+  3. There may also be some issues with removing and re-inserting SD cards
      (of course with appropriate mounting and unmounting).  I all not sure
      of this and need to do more testing to characterize if the issue.
 
-  5. There is not yet any support for the following board features: QSPI or WM8904.
-     Many drivers will port easily from either the SAM3/4 or from the SAMA5Dx.
-     So there is still plenty to be done.
-
-  6. There is a port of the SAMA5D4-EK Ethernet driver to the SAMV71-XULT.
+  4. There is a port of the SAMA5D4-EK Ethernet driver to the SAMV71-XULT.
      This driver appears to be 100% functional with the following caveats:
 
      - There is a compiler optimization issue.  At -O2, there is odd
@@ -107,7 +99,7 @@ The BASIC nsh configuration is fully function (as desribed below under
        Setting write through mode eliminates the need for cleaning the D-Cache.
        If only reloading and invalidating are done, then there is no problem.
 
-  7. The USBHS device controller driver (DCD) is complete but non-functional.
+  5. The USBHS device controller driver (DCD) is complete but non-functional.
      At this point, work has stopped because I am stuck.  The problem is that
      bus events are not occurring:  Nothing is detected by the USBHS when the
      host is connected; no activity is seen on the bus by a USB analyzer when
@@ -118,6 +110,18 @@ The BASIC nsh configuration is fully function (as desribed below under
      wrong this this case.   I have done extensive comparison of the Atmel
      sample code and study of the data sheet, but I have not found the key to
      solving this.
+
+  6. Partial support for the maXTouch Xplained Pro LCD is in place.  The
+     ILI9488-based LCD is working well with a SMC DMA-based interface.  Very
+     nice performance.
+
+     However, the maXTouch touchscreen driver is not working.  I tried re-
+     using the maXTouch driver that was used with the SAMA5D4-EK TM7000
+     LCD, but the maXTouch Xplained Pro has a different maXTouch part.
+     The driver claims that all operations are success, but there are no
+     interrupts signalling touch event.  I assume that the different
+     maXTouch part is not being configured correctly but there is no
+     avaiable technical documentation or sample code to debug with.
 
 Serial Console
 ==============
@@ -150,6 +154,21 @@ use either the VCOM or an external RS-232 driver.  Here are some options.
     GND       GND
     5VO       Vcc
     --------- -----------
+
+  - Arduino Communications.  Additional UART/USART connections are available
+    on the Arduino Communications connection J505:
+
+    ------ ------ ------- ------- --------
+    Pin on SAMV71 Arduino Arduino SAMV71
+    J503   PIO    Name    Pin     Function
+    ------ ------ ------- ------- --------
+      3    PD18   RX1     0       URXD4
+      4    PD19   TX1     0       UTXD4
+      5    PD15   RX2     0       RXD2
+      6    PD16   TX2     0       TXD2
+      7    PB0    RX3     0       RXD0
+      8    PB1    TX3     1       TXD0
+    ------ ------ ------- ------- --------
 
   - SAMV7-XULT EXTn connectors.  USART pins are also available the EXTn
     connectors.  The following are labelled in the User Guide for USART
@@ -694,6 +713,42 @@ additional settings.
     CONFIG_NSH_NETINIT_RETRYMSEC=2000     : Configure the network monitor as you like
     CONFIG_NSH_NETINIT_SIGNO=18
 
+Audio Interface
+===============
+
+WM8904 Audio Codec
+------------------
+
+  SAMV71 Interface        WM8904 Interface
+  ---- ------------ ------- ----------------------------------
+  PIO  Usage        Pin     Function
+  ---- ------------ ------- ----------------------------------
+  PA3  TWD0         SDA     I2C control interface, data line
+  PA4  TWCK0        SCLK    I2C control interface, clock line
+  PA10 RD           ADCDAT  Digital audio output (microphone)
+  PB18 PCK2         MCLK    Master clock
+  PB0  TF           LRCLK   Left/right data alignment clock
+  PB1  TK           BCLK    Bit clock, for synchronization
+  PD11 GPIO         IRQ     Audio interrupt
+  PD24 RF           LRCLK   Left/right data alignment clock
+  PD26 TD           DACDAT  Digital audio input (headphone)
+  ---- ------------ ------- ----------------------------------
+
+CP2100-CP Fractional-N Clock Multiplier
+--------------------------------------
+
+  SAMV71 Interface          CP2100-CP Interface
+  ---- ------------ ------- ----------------------------------
+  PIO  Usage        Pin     Function
+  ---- ------------ ------- ----------------------------------
+  PA3  TWD0         SDA     I2C control interface, data line
+  PA4  TWCK0        SCLK    I2C control interface, clock line
+  PD21 TIOA11       CLK_IN  PLL input
+   -    -           XTI/XTO 12.0MHz crystal
+  PA22 RK           CLK_OUT PLL output
+   -    -           AUX_OUT N/C
+  ---- ------------ ------- ----------------------------------
+
 maXTouch Xplained Pro
 =====================
 
@@ -703,8 +758,11 @@ Testing has also been performed using the maXTouch Xplained Pro LCD
 maXTouch Xplained Pro Standard Extension Header
 -----------------------------------------------
 The LCD could be connected either via EXT1 or EXT2 using the 2x10 20-pin
-cable and the maXTouch Xplained Pro standard extension header. Access is
-then performed in SPI mode.
+cable and the maXTouch Xplained Pro standard extension header. Access would
+then be performed in SPI mode.
+
+NOTE: There is currently no support for use of the LCD in SPI mode.  See
+the next paragraph where the LCD/EXT4 connection is discussion.
 
 NOTE the 3 switch mode selector on the back of the maXtouch.  All switches
 should be in the ON position to select 4-wire SPI mode.
@@ -745,9 +803,9 @@ It is also possible to connect the LCD via the flat cable to the EXT4 LCD
 connector.  In this case, you would use the SMC/EBI to communicate with the
 LCD.
 
-NOTE: (1) Only the RGB interface is supported by the SAMV71-XULT and (2) the
-3 switch mode selector on the back of the maXtouch.  These switches should be
-in the OFF-ON-OFF positions to select 16-bit color mode.
+NOTE: (1) Only the parallel interface is supported by the SAMV71-XULT and (2)
+the 3 switch mode selector on the back of the maXtouch.  These switches should
+be in the OFF-ON-OFF positions to select 16-bit color mode.
 
   ----------------- ------------- -----------------------------------------------------------
          LCD            SAMV71    Description
@@ -785,20 +843,20 @@ in the OFF-ON-OFF positions to select 16-bit color mode.
   30   N/C           -    -
   31   N/C           -    -
   32   GND           -   GND      Ground
-  33   PCLK/        PC30 GPIO     RGB: Pixel clock Display RAM select.
-       CMD_DATA_SEL               MCU: One address line of the MCU for displays where it
+  33   PCLK/        PC30 GPIO     SMC: Pixel clock Display RAM select.
+       CMD_DATA_SEL               SPI: One address line of the MCU for displays where it
                                        is possible to select either the register or the
                                        data interface
-  34   VSYNC/CS     PD19 NCS3     RGB: Vertical synchronization.
-                                  MCU: Chip select
-  35   HSYNC/WE     PC8  NWE      RGB: Horizontal synchronization
-                                  MCU: Write enable signal
-  36   DATA ENABLE/ PC11 NRD      RGB: Data enable signal
-       RE                         MCU: Read enable signal
-  37   SPI SCK       -    -       MCU: Clock for SPI
-  38   SPI MOSI      -    -       MCU: Master out slave in line of SPI
-  39   SPI MISO      -    -       MCU: Master in slave out line of SPI
-  40   SPI SS        -    -       MCU: Slave select for SPI
+  34   VSYNC/CS     PD19 NCS3     SMC: Vertical synchronization.
+                                  SPI: Chip select
+  35   HSYNC/WE     PC8  NWE      SMC: Horizontal synchronization
+                                  SPI: Write enable signal
+  36   DATA ENABLE/ PC11 NRD      SMC: Data enable signal
+       RE                         SPI: Read enable signal
+  37   SPI SCK       -    -       SPI: Clock for SPI
+  38   SPI MOSI      -    -       SPI: Master out slave in line of SPI
+  39   SPI MISO      -    -       SPI: Master in slave out line of SPI
+  40   SPI SS        -    -       SPI: Slave select for SPI
   41   N/C           -    -
   42   TWI SDA      PA3  TWD0     I2C data line (maXTouch®)
   43   TWI SCL      PA4  TWCK0    I2C clock line (maXTouch)
@@ -811,7 +869,26 @@ in the OFF-ON-OFF positions to select 16-bit color mode.
   50   GND           -    -       Ground
   ---- ------------ ---- -------- -----------------------------------------------------------
 
-MXI Configuration Options
+NOTE: Use of LCD/EXT4 conflicts with the Arduino RXD pin (PD28).  You cannot
+put the maXTouch Xplained in LCD/EXT4 and also use the Arduino RXD/TXD pins
+as your serial console.
+
+Connecting the flat cable.  I was embarrassed to say that I did not know how
+the connectors worked.  Let me share this so that, perhaps, I can save you
+the same embarrassment:
+
+- The maXTouch Xplained Pro has an Omron XF2M-5015-1A connector.  There is a
+  black bar at back (toward the baord).  Raise that bar and insert the cable
+  with the contacts away from the board.  Lower that bar to lock the cable
+  in place.
+
+- The SAMV71-Xult has a TE Connectivity 5-1734839-0 FPC connector that works
+  differently.  On each size of the connector are two small white tabs.  Pull
+  these out and away from the board.  Insert the ribbon with the contacts
+  toward the board.  Lock the cable in place by pushing the tabs back in
+  place.
+
+MXT Configuration Options
 -------------------------
 
   System Type -> SAMV7 Peripheral Support
@@ -842,6 +919,48 @@ MXI Configuration Options
     CONFIG_EXAMPLES_TOUCHSCREEN_ARCHINIT=y : Have board-specific intialization
     CONFIG_EXAMPLES_TOUCHSCREEN_DEVPATH="/dev/input0"
     CONFIG_EXAMPLES_TOUCHSCREEN_MINOR=0
+
+ILI9488 Configuration Options
+-----------------------------
+
+Currently only the parallel mode is supported.  This means that the LCD can
+only be used in connected in the LCD (EXT4) connection.
+
+  System Type -> SAMV7 Peripheral Support
+    CONFIG_SAMV7_SMC=y                    : Needed by the ILI9466 driver controller
+    CONFIG_SAMV7_XDMAC=y                  : Needed by the ILI9466 driver
+    CONFIG_SAMV7_TWIHS0_FREQUENCY=100000
+
+  Board Selection ->
+    CONFIG_SAMV71XULT_MXTXPLND=y          : MaXTouch Xplained is connected
+    CONFIG_SAMV71XULT_MXTXPLND_LCD=y      : Must be connected on LCD
+
+  NOTE: When selecting EXT1 or EXT2, be conscious of possible pin conflicts.
+  EXT1, for example, will conflict with the use of the Arduino TXD and RXD
+  pins for the serial console
+
+  Device Drivers -> LCD drivers
+    CONFIG_LCD=y                          : Enable support for LCDs
+
+  Graphics
+    CONFIG_NX=y                           : Enable Graphics supported
+    CONFIG_NX_LCDDRIVER=y                 : Enable LCD driver support
+    CONFIG_NX_DISABLE_*BPP=y              : When * is {1,2,4,8,24, and 32}
+    CONFIG_NXFONTS_CHARBITS=7
+    CONFIG_NXFONT_SANS23X27=y             : One font must be enabled
+
+  There are several graphics examples that can be enabled under apps/examples.
+  nxlines is one of these and can be enabled as follows.  See
+  apps/examples/README.txt for information about configuring other graphics
+  examples.
+
+  The following enables a small built-in application that can be used to
+  test the touchscreen:
+
+  Application Configuration -> Examples -> NX lines example
+    CONFIG_EXAMPLES_NXLINES=y              : Enables the nxlines example
+    CONFIG_EXAMPLES_NXLINES_VPLANE=0
+    CONFIG_EXAMPLES_NXLINES_DEVNO=0
 
 Debugging
 =========
@@ -903,7 +1022,7 @@ NOTES:
        reconfiguration process.
 
   2. Unless stated otherwise, all configurations generate console
-     output on USART3 (i.e., for the Arduino serial shield).
+     output on UART3 (i.e., for the Arduino serial shield).
 
   3. All of these configurations are set up to build under Windows using the
      "GNU Tools for ARM Embedded Processors" that is maintained by ARM
@@ -936,7 +1055,7 @@ NOTES:
 Configuration sub-directories
 -----------------------------
 
-  mxtxplned:
+  mxtxplnd:
 
     Configures the NuttShell (nsh) located at examples/nsh.  There are three
     very similar NSH configurations:
@@ -957,18 +1076,61 @@ Configuration sub-directories
     2. Basic touchscreen/LCD configuration settings are discussed above in
        the paragraph entitled, "maXTouch Xplained Pro".
 
-    3. Like the nsh configuration, this configuratino has the serial console
-       setup to used with an Aduino serial shield (UART3).  NOTE: Use of
-       EXT1 conflicts with the Arduino RXD pin (PD28).  You cannot put the
-       maXTouch Xplained in EXT1 and also use the Arduion RXD/TXD pins as
-       your serial console.  Hence, this configuration assumes that you
-       have the maXTouch Xplained Pro connected via EXT2.
+    3. Unlike the nsh configuration, this configuration has the serial console
+       setup to USART0 which is available on EXT1:
 
-       If you need to use EXT1, you will have to re-configure the serial
-       console on a different UART/USART.
+         ----------- --- ------- -----
+         Connector   PIO Arduino SAMV7
+         ----------- --- ------- -----
+         EXT1 pin 13 PB0 RX3     RXD0
+         EXT1 pin 14 PB1 TX3     TXD0
+         ----------- --- ------- -----
 
-    4. When the maXTouch Xplained is connect via EXT2, a new I2C address
-       appears at address 0x4a:
+       and also on the Arduino Communications connector (J505):
+
+         ----------- --- ------- -----
+         Connector   PIO Arduino SAMV7
+         ----------- --- ------- -----
+         J505 pin 7  PB0 RX3     RXD0
+         J505 pin 8  PB1 TX3     TXD0
+         ----------- --- ------- -----
+
+       Use of either the EXT1 or the LCD/EXT4 connectors conflict with the
+       Arduino RXD pin (UART3, PD28).  You cannot put the maXTouch Xplained
+       in EXT1 or LCD/EXT4 and also use the Arduino RXD/TXD pins as your
+       serial console.
+
+       The LCD (EXT4) is configured by default because only the parallel LCD
+       interface is currently supported and that is only available on that
+       connector.
+
+       If you plan to use EXT2 for some reason, you may re-configure the
+       serial console to use UART3, the standard Arduino RXD/TXD.  You
+       would also, of course, have to disable the LCD.
+
+       NOTE that the USART0 pins PB0 and PB1 conflict with SSC TF and TK
+       pins as connected to the WM8904 audio CODEC.  So, unless yet a
+       different U[S]ART option is selected, Audio cannot be used with
+       this configuration.
+
+    4. SDRAM is NOT enabled in this configuration.
+
+    5. Support for the ILI8488 LCD is enabled.  Only the parallel mode is
+       supported at present.  As a consequence, the maXTouch Xplained Pro
+       must be connected at the LCD (EXT4) connector.  This mode requires:
+
+         CONFIG_SAMV71XULT_MXTXPLND_LCD=y : Must be connect in LCD (EXT4)
+         CONFIG_SAMV7_SMC=y               : SMC/EBI support
+         CONFIG_SAMV7_XDMAC=y             : XDMAC support
+
+    6. The appx/examples/nxlines is enabled as a built-in application.
+       This is a test that displays some simple graphis and can be
+       executed from the NSH command line like:
+
+         nsh> nxlines
+
+    7. When the maXTouch Xplained is connected (in any position), a new I2C
+       address appears at address 0x4a:
 
         nsh> i2c dev 3 77
              0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
@@ -984,13 +1146,27 @@ Configuration sub-directories
        This is the I2C address of the maXTouch touchscreen controller.
 
        (0x1a is the address of the WM8904 Audio CODEC, 0x28 is the
-       address of TWI interface to the EDBG, 0x4e is the address of the
-       CP2100CP programmable PLL, and 0x57 and 0x5f are the addresses of
-       the AT2 EEPROM. I am not sure what the other address, 0x37, is).
+        address of TWI interface to the EDBG, 0x4e is the address of the
+        CP2100CP programmable PLL, and 0x57 and 0x5f are the addresses of
+        the AT2 EEPROM. I am not sure what the other address, 0x37, is).
+
+    8. Support for the touchscreen test is enabled (see apps/examples/touchscreen),
+       however, the maXTouch is not yet working (see STATUS below).
 
     STATUS:
-      2015-03-30:  Currently contains on a touchscreen test. The touchscreen
-        does not yet work.
+      2015-04-05:  Partial support for the maXTouch Xplained Pro LCD is in
+        place.  The ILI9488-based LCD is working well with a SMC DMA-based
+        interface.  Very nice performance.
+
+        However, the maXTouch touchscreen driver is not working.  I tried
+        re-using the maXTouch driver that was used with the SAMA5D4-EK
+        TM7000 LCD, but the maXTouch Xplained Pro has a different maXTouch
+        part.  The driver claims that all operations are success, but
+        there are no interrupts signalling touch event.  I assume that the
+        different maXTouch part is not being configured correctly but there
+        is no available technical documentation or sample code to debug
+        with.
+
 
   netnsh:
 
@@ -1142,38 +1318,34 @@ Configuration sub-directories
        Application Configuration:
          CONFIG_NSH_BUILTIN_APPS=y  : Enable starting apps from NSH command line
 
-    4. SDRAM is not enabled in this configuration.  I have enabled SDRAM and
-       the apps/examples RAM test using this configuration settings:
+    4. SDRAM is enabled in this configuration.  Here are the relevant
+       configuration settings:
 
        System Type
          CONFIG_SAMV7_SDRAMC=y
          CONFIG_SAMV7_SDRAMSIZE=2097152
+
+       SDRAM is not added to the heap in this configuration.  To do that
+       you would need to set CONFIG_SAMV7_SDRAMHEAP=y and CONFIG_MM_REGIONS=2.
+       Instead, the SDRAM is set up so that is can be used with a destructive
+       RAM test enabled with this option:
 
        Application Configuration:
          CONFIG_SYSTEM_RAMTEST=y
 
        The RAM test can be executed as follows:
 
-         nsh> ramtest -w 70000000 209152
+         nsh> ramtest -w 70000000 2097152
 
-       STATUS: As of this writing, SDRAM does not pass the RAM test.  This is the sympton:
-
-        nsh> mw 70000000
-          70000000 = 0x00000000
-        nsh> mw 70000000=55555555
-          70000000 = 0x00000000 -> 0x55555555
-        nsh> mw 70000000
-          70000000 = 0x55555555
-
-        nsh> mw 70100000
-          70100000 = 0x00000000
-        nsh> mw 70100000=aaaaaaaa
-          70100000 = 0x00000000 -> 0xaaaaaaaa
-        nsh> mw 70100000
-          70100000 = 0xaaaaaaaa
-
-        nsh> mw 70000000
-          70000000 = 0x00000000 <<< Lost RAM content
+         NuttShell (NSH) NuttX-7.8
+         nsh> ramtest -w 70000000 2097152
+         RAMTest: Marching ones: 70000000 2097152
+         RAMTest: Marching zeroes: 70000000 2097152
+         RAMTest: Pattern test: 70000000 2097152 55555555 aaaaaaaa
+         RAMTest: Pattern test: 70000000 2097152 66666666 99999999
+         RAMTest: Pattern test: 70000000 2097152 33333333 cccccccc
+         RAMTest: Address-in-address test: 70000000 2097152
+         nsh>
 
     5. The button test at apps/examples/buttons is included in the
        configuration.  This configuration illustrates (1) use of the buttons

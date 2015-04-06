@@ -1237,3 +1237,11 @@
 	  device(2015-03-31).
 	* apps/examples/pwm/: Replace calls to pwm_devinit() in
 	  apps/examples/pwm with calls to boardctl() (2015-03-31).
+	* apps/examples/:  More renaming: up_lcdinitialize->board_lcd_initialize,
+	  up_lcdgetdev->board_lcd_getdev, up_lcduninitialize->board_lcd_uninitialize
+	  (2015-04-04).
+	* apps/examples/nxlines/: Add the new 'capped' parameter to nx_drawline()
+	  calls (2015-04-05).
+	* apps/modbus/tcp:  Fix some complile problems when TCP is enabled
+	  (2015-04-06).
+

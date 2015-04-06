@@ -10091,3 +10091,17 @@
 	  will enable calling board_pwm_setup() from boardctl().  In all
 	  configurations that enable the apps/examples/pwm test, make sure that
 	  boardctl() support is properly enabled (2015-03-31).
+	* Move include/nuttx/timer.h, rtc.h and watchdog.h to include/nuttx/timers/.
+	  (2015-04-01).
+	* drivers/timer/cs2100-cp.c and include/nuttx/timers/cs2100-cp.h: Add a
+	  very basic driver for the CS2100-CP Fractional-N Multipler chip (2015-04-02).
+	* configs/, graphics/, include/nuttx:  More renaming: up_lcdinitialize->board_lcd_initialize,
+	  up_lcdgetdev->board_lcd_getdev, up_lcduninitialize->board_lcd_uninitialize
+	  (2015-04-04).
+	* include/nuttx/nx, libnx/nx, libnx/nxtk: Add a new 'capped' parameter to
+	  nx_drawline(), nxtk_drawlinetoolbar(), and nxtk_drawlinewindow()
+	  (2015-04-05).
+	* libnx/nx/nx_drawline.c, libnx/nxtk/nxtk_drawlinetoolbar.c and
+	  nxtk_drawlinewindow.c: Implement line caps by drawing a file circle at
+	  the each endpoint of a line with a radius equal to half of the width
+	  of the line (2015-04-05).
