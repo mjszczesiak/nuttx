@@ -87,11 +87,20 @@
 #  endif
 #endif
 
+#if !defined(CONFIG_RTC_MAGIC)
+# define CONFIG_RTC_MAGIC (0xfacefeee)
+#endif
+
+#if !defined(CONFIG_RTC_MAGIC_REG)
+# define CONFIG_RTC_MAGIC_REG (0)
+#endif
+
 /* Constants ************************************************************************/
 
 #define SYNCHRO_TIMEOUT  (0x00020000)
 #define INITMODE_TIMEOUT (0x00010000)
-#define RTC_MAGIC        (0xfacefeee)
+#define RTC_MAGIC        CONFIG_RTC_MAGIC
+#define RTC_MAGIC_REG    STM32_RTC_BKR(CONFIG_RTC_MAGIC_REG)
 
 /* Proxy definitions to make the same code work for all the STM32 series ************/
 
@@ -189,7 +198,7 @@ static void rtc_dumpregs(FAR const char *msg)
   rtclldbg("   TAFCR: %08x\n", getreg32(STM32_RTC_TAFCR));
   rtclldbg("ALRMASSR: %08x\n", getreg32(STM32_RTC_ALRMASSR));
   rtclldbg("ALRMBSSR: %08x\n", getreg32(STM32_RTC_ALRMBSSR));
-  rtclldbg("     BK0: %08x\n", getreg32(STM32_RTC_BK0R));
+  rtclldbg("MAGICREG: %08x\n", getreg32(RTC_MAGIC_REG));
 }
 #else
 #  define rtc_dumpregs(msg)
@@ -616,7 +625,7 @@ int up_rtcinitialize(void)
   /* Select the clock source */
   /* Save the token before losing it when resetting */
 
-  regval = getreg32(STM32_RTC_BK0R);
+  regval = getreg32(RTC_MAGIC_REG);
 
   stm32_pwr_enablebkp(true);
 
@@ -688,7 +697,7 @@ int up_rtcinitialize(void)
 
             /* Remember that the RTC is initialized */
 
-            putreg32(RTC_MAGIC, STM32_RTC_BK0R);
+            putreg32(RTC_MAGIC, RTC_MAGIC_REG);
 
             /* Enable the RTC Clock by setting the RTCEN bit in the RCC register */
 
@@ -751,7 +760,7 @@ int up_rtcinitialize(void)
 
       /* Remember that the RTC is initialized */
 
-      putreg32(RTC_MAGIC, STM32_RTC_BK0R);
+      putreg32(RTC_MAGIC, RTC_MAGIC_REG);
     }
   else
     {
@@ -871,6 +880,7 @@ int up_rtc_getdatetime(FAR struct tm *tp)
    * Days: 1-31 match in both cases.
    * Month: STM32 is 1-12, struct tm is 0-11.
    * Years: STM32 is 00-99, struct tm is years since 1900.
+   * WeekDay: STM32 is 1 = Mon - 7 = Sun
    *
    * Issue:  I am not sure what the STM32 years mean.  Are these the
    * years 2000-2099?  I'll assume so.
@@ -884,6 +894,13 @@ int up_rtc_getdatetime(FAR struct tm *tp)
 
   tmp = (dr & (RTC_DR_YU_MASK|RTC_DR_YT_MASK)) >> RTC_DR_YU_SHIFT;
   tp->tm_year = rtc_bcd2bin(tmp) + 100;
+
+#if defined(CONFIG_TIME_EXTENDED)
+  tmp = (dr & RTC_DR_WDU_MASK) >> RTC_DR_WDU_SHIFT;
+  tp->tm_wday = tmp % 7;
+  tp->tm_yday = tp->tm_mday + clock_daysbeforemonth(tp->tm_mon, clock_isleapyear(tp->tm_year + 1900));
+  tp->tm_isdst = 0
+#endif
 
 #ifdef CONFIG_STM32_HAVE_RTC_SUBSECONDS
   /* Return RTC sub-seconds if no configured and if a non-NULL value
@@ -983,14 +1000,18 @@ int stm32_rtc_setdatetime(FAR const struct tm *tp)
    * Days: 1-31 match in both cases.
    * Month: STM32 is 1-12, struct tm is 0-11.
    * Years: STM32 is 00-99, struct tm is years since 1900.
-   *
+   * WeekDay: STM32 is 1 = Mon - 7 = Sun
    * Issue:  I am not sure what the STM32 years mean.  Are these the
    * years 2000-2099?  I'll assume so.
    */
 
   dr = (rtc_bin2bcd(tp->tm_mday) << RTC_DR_DU_SHIFT) |
        ((rtc_bin2bcd(tp->tm_mon + 1))  << RTC_DR_MU_SHIFT) |
+#if defined(CONFIG_TIME_EXTENDED)
+       ((tp->tm_wday == 0 ? 7 : (tp->tm_wday & 7))  << RTC_DR_WDU_SHIFT) |
+#endif
        ((rtc_bin2bcd(tp->tm_year - 100)) << RTC_DR_YU_SHIFT);
+
   dr &= ~RTC_DR_RESERVED_BITS;
 
   /* Disable the write protection for RTC registers */

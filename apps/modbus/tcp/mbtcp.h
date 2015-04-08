@@ -1,5 +1,7 @@
-/*
- * FreeModbus Libary: A portable Modbus implementation for Modbus ASCII/RTU.
+/****************************************************************************
+ * apps/modbus/tcp/mbtcp.h
+ *
+ * FreeModbus Library: A portable Modbus implementation for Modbus ASCII/RTU.
  * Copyright (c) 2006 Christian Walter <wolti@sil.at>
  * All rights reserved.
  *
@@ -30,18 +32,18 @@
 #ifndef __APPS_MODBUS_TCP_MBTCP_H
 #define __APPS_MODBUS_TCP_MBTCP_H
 
-/****************************************************************************
- * Pre-processor Definitions
- ****************************************************************************/
-
 #ifdef __cplusplus
 PR_BEGIN_EXTERN_C
 #endif
 
+/****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
 #define MB_TCP_PSEUDO_ADDRESS   255
 
 /****************************************************************************
- * Public Function Protototypes
+ * Public Function Prototypes
  ****************************************************************************/
 
 eMBErrorCode eMBTCPDoInit(uint16_t ucTCPPort);
@@ -55,4 +57,5 @@ eMBErrorCode eMBTCPSend(uint8_t _unused, const uint8_t *pucFrame,
 #ifdef __cplusplus
 PR_END_EXTERN_C
 #endif
+
 #endif /* __APPS_MODBUS_TCP_MBTCP_H */
