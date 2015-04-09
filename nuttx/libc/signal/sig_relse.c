@@ -1,7 +1,7 @@
 /****************************************************************************
- * libc/signal/sig_addset.c
+ * libc/signal/sig_relse.c
  *
- *   Copyright (C) 2007, 2008, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,44 +38,35 @@
  ****************************************************************************/
 
 #include <signal.h>
-#include <errno.h>
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Function: sigaddset
+ * Name: sigrelse
  *
  * Description:
- *   This function adds the signal specified by signo to the signal set
- *   specified by set.
- *
- * Parameters:
- *   set - Signal set to add signal to
- *   signo - Signal to add
- *
- * Return Value:
- *   0 (OK), or -1 (ERROR) if the signal number is invalid.
- *
- * Assumptions:
+ *   The sigrelse() function will remove 'signo' to the calling process' signal
+ *   mask.
  *
  ****************************************************************************/
 
-int sigaddset(FAR sigset_t *set, int signo)
+int sighold(int signo)
 {
-  /* Verify the signal */
+  sigset_t set;
+  int ret;
 
-  if (!GOOD_SIGNO(signo))
-    {
-      set_errno(EINVAL);
-      return ERROR;
-    }
-  else
-    {
-      /* Add the signal to the set */
+  /* Create a set of signals with only the signal to be unblocked */
 
-      *set |= SIGNO2SET(signo);
-      return OK;
+  (void)sigemptyset(&set);
+  ret = sigaddset(&set, signo);
+  if (ret == OK)
+    {
+      /* Unblock the signal */
+
+      ret = sigprocmask(SIG_UNBLOCK, &set, NULL);
     }
+
+  return ret;
 }

@@ -1,7 +1,7 @@
 /****************************************************************************
- * libc/signal/sig_addset.c
+ * libc/signal/sig_ignore.c
  *
- *   Copyright (C) 2007, 2008, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,44 +38,34 @@
  ****************************************************************************/
 
 #include <signal.h>
-#include <errno.h>
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Function: sigaddset
+ * Name: sigignore
  *
  * Description:
- *   This function adds the signal specified by signo to the signal set
- *   specified by set.
- *
- * Parameters:
- *   set - Signal set to add signal to
- *   signo - Signal to add
- *
- * Return Value:
- *   0 (OK), or -1 (ERROR) if the signal number is invalid.
- *
- * Assumptions:
+ *   The sigignore() function will set the disposition of 'signo' to SIG_IGN.
  *
  ****************************************************************************/
 
-int sigaddset(FAR sigset_t *set, int signo)
+int sigignore(int signo)
 {
-  /* Verify the signal */
+  struct sigaction act;
+  int ret;
 
-  if (!GOOD_SIGNO(signo))
-    {
-      set_errno(EINVAL);
-      return ERROR;
-    }
-  else
-    {
-      /* Add the signal to the set */
+  /* Ignore the signal */
 
-      *set |= SIGNO2SET(signo);
-      return OK;
+  act.sa_handler = SIG_IGN;
+  act.sa_flags   = 0;
+
+  ret = sigemptyset(&act.sa_mask);
+  if (ret == OK)
+    {
+      ret = sigaction(signo, &act, NULL);
     }
+
+  return ret;
 }

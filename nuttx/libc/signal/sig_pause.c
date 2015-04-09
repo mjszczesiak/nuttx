@@ -1,7 +1,7 @@
 /****************************************************************************
- * libc/signal/sig_addset.c
+ * libc/signal/sig_ignore.c
  *
- *   Copyright (C) 2007, 2008, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,45 +37,48 @@
  * Included Files
  ****************************************************************************/
 
+#include <unistd.h>
 #include <signal.h>
-#include <errno.h>
+#include <sched.h>
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Function: sigaddset
+ * Name: sigpause
  *
  * Description:
- *   This function adds the signal specified by signo to the signal set
- *   specified by set.
- *
- * Parameters:
- *   set - Signal set to add signal to
- *   signo - Signal to add
- *
- * Return Value:
- *   0 (OK), or -1 (ERROR) if the signal number is invalid.
- *
- * Assumptions:
+ *   The sigpause() will remove sig from the calling process' signal mask
+ *   and suspend the calling process until a signal is received. The
+ *   sigpause() function will restore the process' signal mask to its
+ *   original state before returning.
  *
  ****************************************************************************/
 
-int sigaddset(FAR sigset_t *set, int signo)
+int sigpause(int signo)
 {
-  /* Verify the signal */
+  sigset_t set;
+  int ret;
 
-  if (!GOOD_SIGNO(signo))
-    {
-      set_errno(EINVAL);
-      return ERROR;
-    }
-  else
-    {
-      /* Add the signal to the set */
+  /* Get the current set of blocked signals */
 
-      *set |= SIGNO2SET(signo);
-      return OK;
+  sched_lock();
+  ret = sigprocmask(SIG_SETMASK, NULL, &set);
+  if (ret == OK)
+    {
+      /* Remove the 'signo' from the set of blocked signals */
+
+      ret = sigdelset(&set, signo);
     }
+
+  /* Let sigsuspend do the rest of the job */
+
+  if (ret == OK)
+    {
+      ret = sigsuspend(&set);
+    }
+
+  sched_unlock();
+  return ret;
 }
