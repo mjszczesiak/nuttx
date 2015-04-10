@@ -1,8 +1,8 @@
-/************************************************************************
- * libc/math/lib_atanh.c
+/****************************************************************************
+ * config/stm32f4discovery/src/kl_appinit.c
  *
- *   Copyright (C) 2015 Brennan Ashton. All rights reserved.
- *   Author: Brennan Ashton <bashton@brennanashton.com>
+ *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,37 +33,39 @@
  *
  ****************************************************************************/
 
-/************************************************************************
+/****************************************************************************
  * Included Files
- ************************************************************************/
+ ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <nuttx/compiler.h>
 
-#include <math.h>
+#include <sys/types.h>
 
-/************************************************************************
+#include <nuttx/board.h>
+
+#ifdef CONFIG_LIB_BOARDCTL
+
+/****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+/****************************************************************************
  * Public Functions
- ************************************************************************/
+ ****************************************************************************/
 
-#ifdef CONFIG_HAVE_DOUBLE
-double atanh(double x)
+/****************************************************************************
+ * Name: board_app_initialize
+ *
+ * Description:
+ *   Perform application specific initialization.  This function is never
+ *   called directly from application code, but only indirectly via the
+ *   (non-standard) boardctl() interface using the command BOARDIOC_INIT.
+ *
+ *****************************************************************************/
+
+int board_app_initialize(void)
 {
-  double y;
-
-  if (fabs(x) < 1E-5)
-    {
-      double z = x * x;
-
-      /* x + 1/3 * x^3 + 1/5 * x^5 + 1/7 * x^7 + ... */
-
-      y = x * (1 + z / 3.0);
-    }
-  else
-    {
-      y = log((1 + x) / (1 - x)) / 2.0;
-    }
-
-  return y;
+  return OK;
 }
-#endif
+
+#endif /* CONFIG_LIB_BOARDCTL */
