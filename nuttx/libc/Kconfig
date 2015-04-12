@@ -265,9 +265,21 @@ config ARCH_LOWPUTC
 config LIBC_LOCALTIME
 	bool "localtime API call support"
 	default "n"
-	depends on !DISABLE_ENVIRON
+	depends on !DISABLE_ENVIRON && EXPERIMENTAL
 	---help---
 		localtime API call support
+
+		Logic currently depends on file system support with, at a minimum, these
+		files in the zoneinfo directory:  GMT and posixrules.  An additional
+		timezone file is required for any another time zone and the environment
+		variable TZ must be set to the name of that file.
+
+		There is an issue with mktime being called very early in initialization
+		by the OS before there are any file systems available.
+
+		And finally, the times presented by the NSH date command are wrong when
+		this logic is enabled.  I assume that this is due to some inconsistency
+		between the NuttX timing logic and the localtime timing logic.
 
 if LIBC_LOCALTIME
 
@@ -288,6 +300,7 @@ endif
 config TIME_EXTENDED
 	bool "Add day of week, year support"
 	default "n"
+	depends on !LIBC_LOCALTIME
 	---help---
 		Selecting TIME_EXTENDED adds tm_wday, tm_yday and tm_isdst
 		to the tm struct. This allows integration with 3rd party libraries
